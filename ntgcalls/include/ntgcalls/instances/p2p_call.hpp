@@ -22,6 +22,7 @@ namespace ntgcalls {
         wrtc::synchronized_callback<bytes::binary> onEmitData;
         std::vector<wrtc::IceCandidate> pendingIceCandidates;
         signaling::Signaling::Version protocolVersion = signaling::Signaling::Version::Unknown;
+        std::vector<std::string> outgoingVideoCodecPreferences; // Retinal codec seam
 
         void processSignalingData(const bytes::binary& buffer);
 
@@ -47,6 +48,9 @@ namespace ntgcalls {
         void skipExchange(bytes::vector encryptionKey, bool isOutgoing);
 
         void connect(const std::vector<RTCServer>& servers, const std::vector<std::string>& versions, bool p2pAllowed);
+
+        // Retinal codec seam: ordered outgoing video codec preference; call before connect().
+        void setOutgoingVideoCodecPreferences(std::vector<std::string> preferences);
 
         Type type() const override;
 

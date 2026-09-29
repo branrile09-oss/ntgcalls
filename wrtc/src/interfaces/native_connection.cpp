@@ -193,6 +193,10 @@ namespace wrtc {
         return result;
     }
 
+    void NativeConnection::setOutgoingVideoCodecPreferences(std::vector<std::string> preferences) {
+        outgoingVideoCodecPreferences = std::move(preferences);
+    }
+
     void NativeConnection::createChannels() {
         const auto coordinatedState = contentNegotiationContext->coordinatedState();
         if (!coordinatedState) {
@@ -246,7 +250,8 @@ namespace wrtc {
                             *videoContent,
                             workerThread(),
                             networkThread(),
-                            &videoSink
+                            &videoSink,
+                            outgoingVideoCodecPreferences
                         );
                     }
                 }

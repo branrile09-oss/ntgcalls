@@ -59,6 +59,10 @@ public class NTgCalls {
 
     public native void connectP2P(long chatId, List<RTCServer> rtcServers, List<String> versions, boolean p2pAllowed) throws ConnectionException;
 
+    // Retinal codec seam: ordered outgoing video codec preference ("AV1", "VP9",
+    // "H264", ...) for a P2P call; call before connectP2P. Empty keeps the default.
+    public native void setOutgoingVideoCodecPreferences(long chatId, List<String> codecs) throws ConnectionException;
+
     public native String createCall(long chatId) throws FileNotFoundException, ConnectionException;
 
     public native void connect(long chatId, String params, boolean isPresentation) throws ConnectionException;

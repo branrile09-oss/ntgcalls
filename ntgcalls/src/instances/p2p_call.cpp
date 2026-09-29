@@ -114,6 +114,10 @@ namespace ntgcalls {
         RTC_LOG(LS_VERBOSE) << "Exchange skipped";
     }
 
+    void P2PCall::setOutgoingVideoCodecPreferences(std::vector<std::string> preferences) {
+        outgoingVideoCodecPreferences = std::move(preferences);
+    }
+
     void P2PCall::connect(const std::vector<RTCServer>& servers, const std::vector<std::string>& versions, const bool p2pAllowed) {
         RTC_LOG(LS_INFO) << "Connecting to P2P call, p2pAllowed: " << (p2pAllowed ? "true" : "false");
         if (connection) {
@@ -133,11 +137,13 @@ namespace ntgcalls {
         protocolVersion = signaling::Signaling::matchVersion(versions);
         std::weak_ptr weak(shared_from_this());
         if (protocolVersion == signaling::Signaling::Version::V2) {
-            connection = std::make_shared<wrtc::NativeConnection>(
+            const auto nativeConnection = std::make_shared<wrtc::NativeConnection>(
                 RTCServer::toRtcServers(servers),
                 p2pAllowed,
                 type() == Type::Outgoing
             );
+            nativeConnection->setOutgoingVideoCodecPreferences(outgoingVideoCodecPreferences); // Retinal codec seam
+            connection = nativeConnection;
         } else {
             throw InvalidParams("Unsupported protocol version");
         }

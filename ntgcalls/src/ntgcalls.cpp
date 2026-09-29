@@ -157,6 +157,12 @@ namespace ntgcalls {
         END_ASYNC
     }
 
+    ASYNC_RETURN(void) NTgCalls::setOutgoingVideoCodecPreferences(const int64_t userId, const std::vector<std::string>& codecs) {
+        SMART_ASYNC(this, userId, codecs)
+        SafeCall<P2PCall>(safeConnection(userId))->setOutgoingVideoCodecPreferences(codecs);
+        END_ASYNC
+    }
+
     ASYNC_RETURN(void) NTgCalls::connectP2P(const int64_t userId, const std::vector<RTCServer>& servers, const std::vector<std::string>& versions, const bool p2pAllowed) {
         SMART_ASYNC(this, userId, servers, versions, p2pAllowed)
         SafeCall<P2PCall>(safeConnection(userId))->connect(servers, versions, p2pAllowed);

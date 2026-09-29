@@ -3,6 +3,8 @@
 //
 
 #pragma once
+#include <string>
+#include <vector>
 #include <call/call.h>
 #include <pc/dtls_srtp_transport.h>
 
@@ -27,7 +29,10 @@ namespace wrtc {
             const MediaContent& mediaContent,
             SafeThread& workerThread,
             SafeThread& networkThread,
-            LocalVideoAdapter* sink
+            LocalVideoAdapter* sink,
+            // Retinal codec seam: ordered outgoing codec names (e.g. "AV1", "VP9", "H264").
+            // Empty keeps the default preference (H.264 first).
+            std::vector<std::string> codecPreferences = {}
         );
 
         ~OutgoingVideoChannel();

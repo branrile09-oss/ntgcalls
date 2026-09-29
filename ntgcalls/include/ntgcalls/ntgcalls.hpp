@@ -71,6 +71,10 @@ namespace ntgcalls {
 
         ASYNC_RETURN(void) connectP2P(int64_t userId, const std::vector<RTCServer>& servers, const std::vector<std::string>& versions, bool p2pAllowed);
 
+        // Retinal codec seam: ordered outgoing video codec preference for a P2P call
+        // (codec names such as "AV1", "VP9", "H264"); call before connectP2P.
+        ASYNC_RETURN(void) setOutgoingVideoCodecPreferences(int64_t userId, const std::vector<std::string>& codecs);
+
         ASYNC_RETURN(std::string) createCall(int64_t chatId);
 
         ASYNC_RETURN(std::string) initPresentation(int64_t chatId);

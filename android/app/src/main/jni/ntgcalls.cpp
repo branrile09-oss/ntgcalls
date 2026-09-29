@@ -190,6 +190,15 @@ JNIEXPORT void JNICALL Java_io_github_pytgcalls_NTgCalls_connectP2P(JNIEnv *env,
     } HANDLE_EXCEPTIONS
 }
 
+// Retinal codec seam
+extern "C"
+JNIEXPORT void JNICALL Java_io_github_pytgcalls_NTgCalls_setOutgoingVideoCodecPreferences(JNIEnv *env, jobject thiz, jlong chat_id, jobject codecs) {
+    try {
+        auto instance = getInstance(env, thiz);
+        instance->setOutgoingVideoCodecPreferences(static_cast<long>(chat_id), parseStringList(env, codecs));
+    } HANDLE_EXCEPTIONS
+}
+
 extern "C"
 JNIEXPORT jstring JNICALL Java_io_github_pytgcalls_NTgCalls_createCall(JNIEnv *env, jobject thiz, jlong chatId) {
     try {

@@ -28,6 +28,7 @@ namespace wrtc {
         std::unique_ptr<webrtc::RtcEventLogNull> eventLog;
         std::unique_ptr<ContentNegotiationContext> contentNegotiationContext;
         std::optional<std::string> audioChannelId, videoChannelId;
+        std::vector<std::string> outgoingVideoCodecPreferences; // Retinal codec seam
 
         void notifyStateUpdated();
 
@@ -74,6 +75,9 @@ namespace wrtc {
         void close() override;
 
         void createChannels();
+
+        // Retinal codec seam: set before open(); empty keeps the default preference.
+        void setOutgoingVideoCodecPreferences(std::vector<std::string> preferences);
 
         void addIceCandidate(const IceCandidate& rawCandidate) const override;
 

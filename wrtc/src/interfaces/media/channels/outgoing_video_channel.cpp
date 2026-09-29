@@ -6,6 +6,7 @@
 
 #include <wrtc/interfaces/native_connection.hpp>
 #include <api/video/builtin_video_bitrate_allocator_factory.h>
+#include <rtc_base/logging.h>
 
 namespace wrtc {
     OutgoingVideoChannel::OutgoingVideoChannel(
@@ -15,7 +16,8 @@ namespace wrtc {
         const MediaContent &mediaContent,
         SafeThread& workerThread,
         SafeThread& networkThread,
-        LocalVideoAdapter* sink
+        LocalVideoAdapter* sink,
+        std::vector<std::string> codecPreferences
     ): _ssrc(mediaContent.ssrc), workerThread(workerThread), networkThread(networkThread), sink(sink) {
         webrtc::VideoOptions videoOptions;
         videoOptions.is_screencast = mediaContent.isScreenCast();
@@ -43,9 +45,13 @@ namespace wrtc {
             }
             unsortedCodecs.push_back(std::move(codec));
         }
-        const std::vector<std::string> codecPreferences = {
-            webrtc::kH264CodecName
-        };
+        // Retinal codec seam: order the negotiated codecs by the caller's preference;
+        // the first negotiated codec becomes the send codec. Codecs the peer did
+        // not accept are never introduced here, so fallback is automatic.
+        const bool hasCallerPreference = !codecPreferences.empty();
+        if (!hasCallerPreference) {
+            codecPreferences = {webrtc::kH264CodecName};
+        }
         std::vector<webrtc::Codec> codecs;
         for (const auto &name : codecPreferences) {
             for (const auto &codec : unsortedCodecs) {
@@ -60,6 +66,13 @@ namespace wrtc {
             }
         }
 
+        if (hasCallerPreference) {
+            std::string requested, ordered;
+            for (const auto &name : codecPreferences) requested += name + " ";
+            for (const auto &codec : codecs) ordered += codec.name + "/" + std::to_string(codec.id) + " ";
+            RTC_LOG(LS_INFO) << "[Retinal codec seam] outgoing video preference: " << requested
+                             << "| negotiated order: " << ordered;
+        }
         auto outgoingVideoDescription = std::make_unique<webrtc::VideoContentDescription>();
         for (const auto &rtpExtension : mediaContent.rtpExtensions) {
             outgoingVideoDescription->AddRtpHeaderExtension(rtpExtension);
