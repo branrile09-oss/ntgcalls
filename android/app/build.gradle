@@ -100,6 +100,8 @@ new File("$baseDir/version.properties").withInputStream {
 def versionInfoProvider = providers.of(VersionInfoProvider) {
     parameters.module = layout.projectDirectory
 }.get()
+// Retinal-modified build: distinct version name, e.g. 2.2.5+retinal.1
+def retinalVersionName = "${versionInfoProvider.versionName}+retinal.${versionProps.getProperty('version.retinal')}"
 
 android {
     namespace = "io.github.pytgcalls"
@@ -117,7 +119,7 @@ android {
 
         buildConfigField 'String', 'GIT_COMMIT', "\"${versionInfoProvider.gitCommit}\""
         buildConfigField 'int', 'VERSION_CODE', "${versionInfoProvider.versionCode}"
-        buildConfigField 'String', 'VERSION_NAME', "\"${versionInfoProvider.versionName}\""
+        buildConfigField 'String', 'VERSION_NAME', "\"${retinalVersionName}\""
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
 
@@ -165,7 +167,7 @@ android {
 }
 
 mavenPublishing {
-    coordinates("io.github.pytgcalls", "ntgcalls", versionInfoProvider.versionName)
+    coordinates("io.github.pytgcalls", "ntgcalls", retinalVersionName)
 
     pom {
         name = "ntgcalls"
