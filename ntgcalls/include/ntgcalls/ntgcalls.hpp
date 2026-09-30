@@ -118,6 +118,10 @@ namespace ntgcalls {
 
         static Protocol getProtocol();
 
+        // Retinal encoder config: see android::setVideoEncoderSharedEglContext.
+        // Always false (not applied) on non-Android builds.
+        static bool setVideoEncoderSharedEglContext(bool enabled);
+
 #ifndef IS_ANDROID
         static void enableGlibLoop(bool enable);
 #endif

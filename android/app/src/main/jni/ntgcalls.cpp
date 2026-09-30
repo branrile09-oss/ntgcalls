@@ -308,6 +308,12 @@ JNIEXPORT jobject JNICALL Java_io_github_pytgcalls_NTgCalls_getProtocol(JNIEnv* 
     return parseJProtocol(env, ntgcalls::NTgCalls::getProtocol()).Release();
 }
 
+// Retinal encoder config
+extern "C"
+JNIEXPORT jboolean JNICALL Java_io_github_pytgcalls_NTgCalls_setVideoEncoderSharedEglContext(JNIEnv*, jclass, jboolean enabled) {
+    return ntgcalls::NTgCalls::setVideoEncoderSharedEglContext(enabled == JNI_TRUE) ? JNI_TRUE : JNI_FALSE;
+}
+
 REGISTER_CALLBACK(setUpgradeCallback, onUpgrade, "(JLio/github/pytgcalls/media/MediaState;)V")
 
 REGISTER_CALLBACK(setStreamEndCallback, onStreamEnd, "(JLio/github/pytgcalls/media/StreamType;)V")

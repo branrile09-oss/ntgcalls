@@ -87,6 +87,12 @@ public class NTgCalls {
 
     public static native Protocol getProtocol();
 
+    // Retinal encoder config: false creates the hardware video encoder factory
+    // without the shared EGL context, for callers that only send I420 frames
+    // (sendExternalFrame); true (default) keeps upstream behaviour.
+    // Process-wide; returns false if the encoder factory already exists.
+    public static native boolean setVideoEncoderSharedEglContext(boolean enabled);
+
     public static native MediaDevices getMediaDevices();
 
     public static long ping() {

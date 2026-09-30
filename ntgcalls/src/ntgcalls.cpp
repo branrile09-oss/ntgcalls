@@ -10,6 +10,7 @@
 #include <ntgcalls/models/dh_config.hpp>
 #include <ntgcalls/utils/g_lib_loop_manager.hpp>
 #include <wrtc/video_factory/video_factory_config.hpp>
+#include <wrtc/video_factory/hardware/android/video_factory.hpp>
 
 namespace ntgcalls {
     NTgCalls::NTgCalls() {
@@ -411,6 +412,15 @@ namespace ntgcalls {
 
     std::string NTgCalls::ping() {
         return "pong";
+    }
+
+    bool NTgCalls::setVideoEncoderSharedEglContext(const bool enabled) {
+#ifdef IS_ANDROID
+        return android::setVideoEncoderSharedEglContext(enabled);
+#else
+        (void) enabled;
+        return false;
+#endif
     }
 
     MediaDevices NTgCalls::getMediaDevices() {

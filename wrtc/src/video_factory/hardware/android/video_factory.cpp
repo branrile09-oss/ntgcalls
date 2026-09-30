@@ -7,13 +7,42 @@
 #include <sdk/android/native_api/codecs/wrapper.h>
 #include <sdk/android/native_api/jni/class_loader.h>
 #include <sdk/android/native_api/jni/scoped_java_ref.h>
+#include <mutex>
+#include <rtc_base/logging.h>
 
 namespace android {
+    // Retinal encoder config
+    namespace {
+        std::mutex encoderConfigMutex;
+        bool encoderSharedEglContext = true;
+        bool encoderFactoryCreated = false;
+    }
+
+    bool setVideoEncoderSharedEglContext(const bool enabled) {
+        std::lock_guard lock(encoderConfigMutex);
+        if (encoderFactoryCreated) {
+            return false;
+        }
+        encoderSharedEglContext = enabled;
+        return true;
+    }
+
     std::unique_ptr<webrtc::VideoEncoderFactory> CreateVideoEncoderFactory(JNIEnv* env) {
-        const webrtc::ScopedJavaLocalRef<jclass> javaVideoCapturerModule = webrtc::GetClass(env, "io/github/pytgcalls/devices/JavaVideoCapturerModule");
-        // ReSharper disable once CppLocalVariableMayBeConst
-        jmethodID getEglContext = env->GetStaticMethodID(javaVideoCapturerModule.obj(), "getSharedEGLContext", "()Lorg/webrtc/EglBase$Context;");
-        const auto eglContext = env->CallStaticObjectMethod(javaVideoCapturerModule.obj(), getEglContext);
+        bool useSharedEglContext;
+        {
+            std::lock_guard lock(encoderConfigMutex);
+            encoderFactoryCreated = true;
+            useSharedEglContext = encoderSharedEglContext;
+        }
+        jobject eglContext = nullptr;
+        if (useSharedEglContext) {
+            const webrtc::ScopedJavaLocalRef<jclass> javaVideoCapturerModule = webrtc::GetClass(env, "io/github/pytgcalls/devices/JavaVideoCapturerModule");
+            // ReSharper disable once CppLocalVariableMayBeConst
+            jmethodID getEglContext = env->GetStaticMethodID(javaVideoCapturerModule.obj(), "getSharedEGLContext", "()Lorg/webrtc/EglBase$Context;");
+            eglContext = env->CallStaticObjectMethod(javaVideoCapturerModule.obj(), getEglContext);
+        } else {
+            RTC_LOG(LS_INFO) << "[Retinal encoder config] hardware video encoder factory without shared EGL context (byte-buffer input)";
+        }
 
         const webrtc::ScopedJavaLocalRef<jclass> factoryClass = webrtc::GetClass(env, "org/webrtc/DefaultVideoEncoderFactory");
         // ReSharper disable once CppLocalVariableMayBeConst
