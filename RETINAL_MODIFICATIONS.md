@@ -6,9 +6,9 @@ It is not an official ntgcalls release.
 | | |
 |---|---|
 | Upstream base | ntgcalls v2.2.5, commit `1f4e4baadc77ce74753c037741c21ca95b1ca737` |
-| Modified version | `2.2.5+retinal.1` (Android `BuildConfig.VERSION_NAME`; `version.retinal` in `version.properties`) |
+| Modified version | `2.2.5+retinal.2` (Android `BuildConfig.VERSION_NAME`; `version.retinal` in `version.properties`) |
 | Modified by | Riley Branson, for the Retinal Android application |
-| Date of modification | 2026-09-30 |
+| Date of modification | 2026-09-30 (`+retinal.1`: codec preference; `+retinal.2`: outgoing video statistics) |
 | Licence | GNU LGPL-3.0, the same as upstream (see `LICENSE`). The modifications are licensed under LGPL-3.0. |
 
 ## What was changed
@@ -39,9 +39,44 @@ Files:
 
 Changed hunks are marked `Retinal codec seam`.
 
-### 2. Version identification (2026-09-30)
+### 2. Read-only outgoing video statistics (2026-09-30, `+retinal.2`)
 
-- `version.properties`: `version.retinal=1`
+Upstream has no way for the application to read a P2P call's outgoing video
+statistics. This modification adds one read-only query,
+`NTgCalls.getOutgoingVideoStats(chatId)`, returning an `OutgoingVideoStats`
+snapshot (or null before the call's media exists). The values are copied from
+statistics WebRTC already keeps:
+
+- `webrtc::Call::GetStats()`: send-side bandwidth estimate, pacer delay, RTT;
+- the outgoing video channel's `VideoMediaSendInfo` (first sender): negotiated
+  send codec and payload type, encoder implementation name, target and media
+  bitrate, bytes/packets sent and retransmitted, packets lost, fraction lost,
+  RTT, sent frame size and frame rates, quality-limitation reason, QP sum,
+  frame and key-frame counts, huge frames, encode time/usage, NACK/FIR/PLI
+  counts.
+
+It is observational only: the snapshot is taken on WebRTC's worker thread and
+nothing is written back. Congestion control, the degradation preference,
+encoder behaviour, negotiation and Telegram signalling are unchanged, and no
+policy is added to ntgcalls. The calling application decides what, if
+anything, to do with the values.
+
+Files:
+
+- `android/app/src/main/java/io/github/pytgcalls/NTgCalls.java`: `getOutgoingVideoStats(long chatId)`
+- `android/app/src/main/java/io/github/pytgcalls/media/OutgoingVideoStats.java` (new): the snapshot class
+- `android/app/src/main/jni/ntgcalls.cpp`, `android/app/src/main/jni/utils.hpp`, `android/app/src/main/jni/utils.cpp`: JNI entry point and conversion
+- `ntgcalls/include/ntgcalls/ntgcalls.hpp`, `ntgcalls/src/ntgcalls.cpp`: `NTgCalls::getOutgoingVideoStats`
+- `ntgcalls/include/ntgcalls/instances/p2p_call.hpp`, `ntgcalls/src/instances/p2p_call.cpp`: forward to the native connection
+- `wrtc/include/wrtc/models/outgoing_video_stats.hpp` (new): the snapshot struct
+- `wrtc/include/wrtc/interfaces/native_network_interface.hpp`, `wrtc/src/interfaces/native_network_interface.cpp`: take the snapshot on the worker thread
+- `wrtc/include/wrtc/interfaces/media/channels/outgoing_video_channel.hpp`, `wrtc/src/interfaces/media/channels/outgoing_video_channel.cpp`: read the send channel's statistics
+
+Changed hunks are marked `Retinal stats seam`.
+
+### 3. Version identification (2026-09-30)
+
+- `version.properties`: `version.retinal=2` (was `1` for `2.2.5+retinal.1`)
 - `android/app/build.gradle`: the Android version name and publication version
   carry the `+retinal.<n>` suffix. (`VERSION_CODE` is unchanged because upstream's
   version-code scheme only understands `-alpha`/`-beta`/`-rc` suffixes.)
