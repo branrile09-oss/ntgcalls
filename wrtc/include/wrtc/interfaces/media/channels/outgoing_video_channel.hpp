@@ -40,5 +40,8 @@ namespace wrtc {
         void set_enabled(bool enable) const;
 
         [[nodiscard]] uint32_t ssrc() const;
+
+        // Retinal stats seam: read-only; call on the worker thread.
+        bool getStats(webrtc::VideoMediaSendInfo* info) const;
     };
 } // wrtc

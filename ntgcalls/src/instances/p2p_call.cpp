@@ -118,6 +118,14 @@ namespace ntgcalls {
         outgoingVideoCodecPreferences = std::move(preferences);
     }
 
+    std::optional<wrtc::OutgoingVideoStats> P2PCall::getOutgoingVideoStats() const {
+        const auto nativeConnection = std::dynamic_pointer_cast<wrtc::NativeConnection>(connection);
+        if (!nativeConnection) {
+            return std::nullopt;
+        }
+        return nativeConnection->getOutgoingVideoStats();
+    }
+
     void P2PCall::connect(const std::vector<RTCServer>& servers, const std::vector<std::string>& versions, const bool p2pAllowed) {
         RTC_LOG(LS_INFO) << "Connecting to P2P call, p2pAllowed: " << (p2pAllowed ? "true" : "false");
         if (connection) {

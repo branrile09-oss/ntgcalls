@@ -9,6 +9,7 @@ import io.github.pytgcalls.media.MediaDescription;
 import io.github.pytgcalls.media.MediaDevices;
 import io.github.pytgcalls.media.MediaSegmentStatus;
 import io.github.pytgcalls.media.MediaState;
+import io.github.pytgcalls.media.OutgoingVideoStats;
 import io.github.pytgcalls.media.CallInfo;
 import io.github.pytgcalls.media.SsrcGroup;
 import io.github.pytgcalls.media.StreamDevice;
@@ -123,6 +124,10 @@ public class NTgCalls {
     public native void sendBroadcastPart(long chatId, long segmentId, int partId, MediaSegmentStatus status, boolean qualityUpdate, byte[] data);
 
     public native ConnectionMode getConnectionMode(long chatId) throws ConnectionNotFoundException;
+
+    // Retinal stats seam: read-only snapshot of a P2P call's outgoing video
+    // (bandwidth estimate, codec, encoder, loss, RTT); null before it exists.
+    public native OutgoingVideoStats getOutgoingVideoStats(long chatId) throws ConnectionNotFoundException;
 
     public native Map<Long, CallInfo> calls();
 }

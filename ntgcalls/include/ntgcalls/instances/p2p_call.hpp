@@ -8,6 +8,8 @@
 #include <ntgcalls/signaling/signaling.hpp>
 #include <ntgcalls/models/rtc_server.hpp>
 #include <ntgcalls/models/dh_config.hpp>
+#include <optional>
+#include <wrtc/models/outgoing_video_stats.hpp>
 
 namespace ntgcalls {
 
@@ -51,6 +53,9 @@ namespace ntgcalls {
 
         // Retinal codec seam: ordered outgoing video codec preference; call before connect().
         void setOutgoingVideoCodecPreferences(std::vector<std::string> preferences);
+
+        // Retinal stats seam: read-only; nullopt before the connection exists.
+        std::optional<wrtc::OutgoingVideoStats> getOutgoingVideoStats() const;
 
         Type type() const override;
 

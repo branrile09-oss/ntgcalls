@@ -19,6 +19,7 @@
 #include <ntgcalls/models/remote_source_state.hpp>
 #include <wrtc/models/media_content.hpp>
 #include <wrtc/models/segment_part_request.hpp>
+#include <wrtc/models/outgoing_video_stats.hpp>
 
 #define CHECK_AND_THROW_IF_EXISTS(chatId) \
 if (exists(chatId)) { \
@@ -104,6 +105,10 @@ namespace ntgcalls {
         ASYNC_RETURN(MediaState) getState(int64_t chatId);
 
         ASYNC_RETURN(wrtc::ConnectionMode) getConnectionMode(int64_t chatId);
+
+        // Retinal stats seam: read-only snapshot of a P2P call's outgoing video;
+        // nullopt before the call's media exists.
+        ASYNC_RETURN(std::optional<wrtc::OutgoingVideoStats>) getOutgoingVideoStats(int64_t chatId);
 
         ASYNC_RETURN(double) cpuUsage() const;
 

@@ -68,6 +68,9 @@ ntgcalls::BaseMediaDescription::MediaSource parseMediaSource(JNIEnv *env, jobjec
 
 webrtc::ScopedJavaLocalRef<jobject> parseJMediaState(JNIEnv *env, ntgcalls::MediaState mediaState);
 
+// Retinal stats seam
+webrtc::ScopedJavaLocalRef<jobject> parseJOutgoingVideoStats(JNIEnv *env, const wrtc::OutgoingVideoStats& stats);
+
 webrtc::ScopedJavaLocalRef<jobject> parseJProtocol(JNIEnv *env, const ntgcalls::Protocol& protocol);
 
 webrtc::ScopedJavaLocalRef<jobject> parseJStreamType(JNIEnv *env, ntgcalls::StreamManager::Type type);

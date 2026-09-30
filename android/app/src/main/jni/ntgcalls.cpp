@@ -286,6 +286,18 @@ JNIEXPORT jobject JNICALL Java_io_github_pytgcalls_NTgCalls_getState(JNIEnv *env
     return nullptr;
 }
 
+// Retinal stats seam
+extern "C"
+JNIEXPORT jobject JNICALL Java_io_github_pytgcalls_NTgCalls_getOutgoingVideoStats(JNIEnv *env, jobject thiz, jlong chat_id) {
+    try {
+        auto instance = getInstance(env, thiz);
+        if (const auto stats = instance->getOutgoingVideoStats(static_cast<long>(chat_id))) {
+            return parseJOutgoingVideoStats(env, *stats).Release();
+        }
+    } HANDLE_EXCEPTIONS
+    return nullptr;
+}
+
 extern "C"
 JNIEXPORT jstring JNICALL Java_io_github_pytgcalls_NTgCalls_pingNative(JNIEnv* env, jclass) {
     return env->NewStringUTF(ntgcalls::NTgCalls::ping().c_str());

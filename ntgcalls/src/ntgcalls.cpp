@@ -327,6 +327,12 @@ namespace ntgcalls {
         END_ASYNC
     }
 
+    ASYNC_RETURN(std::optional<wrtc::OutgoingVideoStats>) NTgCalls::getOutgoingVideoStats(const int64_t chatId) {
+        SMART_ASYNC(this, chatId)
+        return SafeCall<P2PCall>(safeConnection(chatId))->getOutgoingVideoStats();
+        END_ASYNC
+    }
+
     ASYNC_RETURN(double) NTgCalls::cpuUsage() const {
         SMART_ASYNC(this)
         return hardwareInfo->getCpuUsage();

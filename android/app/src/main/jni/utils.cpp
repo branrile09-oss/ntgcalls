@@ -301,6 +301,58 @@ webrtc::ScopedJavaLocalRef<jobject> parseJMediaState(JNIEnv *env, ntgcalls::Medi
     return webrtc::ScopedJavaLocalRef<>::Adopt(env, env->NewObject(mediaStateClass.obj(), constructor, mediaState.muted, mediaState.videoPaused, mediaState.videoStopped));
 }
 
+// Retinal stats seam: empty strings become null.
+webrtc::ScopedJavaLocalRef<jobject> parseJOutgoingVideoStats(JNIEnv *env, const wrtc::OutgoingVideoStats& stats) {
+    const auto statsClass = webrtc::GetClass(env, "io/github/pytgcalls/media/OutgoingVideoStats");
+    jmethodID constructor = env->GetMethodID(
+        statsClass.obj(),
+        "<init>",
+        "(JJJJZLjava/lang/String;ILjava/lang/String;IJJJJJJFJIIDILjava/lang/String;JJJJJJJIIJJJ)V"
+    );
+    const auto optionalString = [env](const std::string& value) {
+        return webrtc::ScopedJavaLocalRef<jstring>::Adopt(env, value.empty() ? nullptr : env->NewStringUTF(value.c_str()));
+    };
+    const auto codecName = optionalString(stats.codecName);
+    const auto encoderImplementation = optionalString(stats.encoderImplementation);
+    const auto qualityLimitationReason = optionalString(stats.qualityLimitationReason);
+    jvalue args[34];
+    args[0].j = stats.timestampMs;
+    args[1].j = stats.sendBandwidthBps;
+    args[2].j = stats.pacerDelayMs;
+    args[3].j = stats.rttMs;
+    args[4].z = stats.hasSender;
+    args[5].l = codecName.obj();
+    args[6].i = stats.codecPayloadType;
+    args[7].l = encoderImplementation.obj();
+    args[8].i = stats.powerEfficientEncoder;
+    args[9].j = stats.targetBitrateBps;
+    args[10].j = stats.mediaBitrateBps;
+    args[11].j = stats.bytesSent;
+    args[12].j = stats.retransmittedBytesSent;
+    args[13].j = stats.packetsSent;
+    args[14].j = stats.packetsLost;
+    args[15].f = stats.fractionLost;
+    args[16].j = stats.senderRttMs;
+    args[17].i = stats.frameWidth;
+    args[18].i = stats.frameHeight;
+    args[19].d = stats.framerateInput;
+    args[20].i = stats.framerateSent;
+    args[21].l = qualityLimitationReason.obj();
+    args[22].j = stats.qualityLimitationResolutionChanges;
+    args[23].j = stats.qpSum;
+    args[24].j = stats.framesEncoded;
+    args[25].j = stats.keyFramesEncoded;
+    args[26].j = stats.framesSent;
+    args[27].j = stats.hugeFramesSent;
+    args[28].j = stats.totalEncodedBytesTarget;
+    args[29].i = stats.avgEncodeMs;
+    args[30].i = stats.encodeUsagePercent;
+    args[31].j = stats.nacksReceived;
+    args[32].j = stats.firsReceived;
+    args[33].j = stats.plisReceived;
+    return webrtc::ScopedJavaLocalRef<>::Adopt(env, env->NewObjectA(statsClass.obj(), constructor, args));
+}
+
 webrtc::ScopedJavaLocalRef<jobject> parseJProtocol(JNIEnv *env, const ntgcalls::Protocol &protocol) {
     const auto protocolClass = webrtc::GetClass(env, "io/github/pytgcalls/p2p/Protocol");
     jmethodID constructor = env->GetMethodID(protocolClass.obj(), "<init>", "(IIZZLjava/util/List;)V");

@@ -140,4 +140,8 @@ namespace wrtc {
     uint32_t OutgoingVideoChannel::ssrc() const {
         return _ssrc;
     }
+
+    bool OutgoingVideoChannel::getStats(webrtc::VideoMediaSendInfo* info) const {
+        return channel && channel->video_media_send_channel()->GetStats(info);
+    }
 } // wrtc

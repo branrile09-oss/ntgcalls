@@ -328,6 +328,75 @@ namespace wrtc {
         return ConnectionMode::Rtc;
     }
 
+    // Retinal stats seam: copies existing statistics only; changes nothing.
+    std::optional<OutgoingVideoStats> NativeNetworkInterface::getOutgoingVideoStats() {
+        std::weak_ptr weak(shared_from_this());
+        return workerThread().BlockingCall([weak]() -> std::optional<OutgoingVideoStats> {
+            const auto strong = weak.lock();
+            if (!strong || !strong->call) {
+                return std::nullopt;
+            }
+            OutgoingVideoStats stats;
+            stats.timestampMs = webrtc::TimeMillis();
+            const auto callStats = strong->call->GetStats();
+            stats.sendBandwidthBps = callStats.send_bandwidth_bps;
+            stats.pacerDelayMs = callStats.pacer_delay_ms;
+            stats.rttMs = callStats.rtt_ms;
+            webrtc::VideoMediaSendInfo info;
+            if (!strong->videoChannel || !strong->videoChannel->getStats(&info) || info.senders.empty()) {
+                return stats;
+            }
+            const auto& sender = info.senders.front();
+            stats.hasSender = true;
+            stats.codecName = sender.codec_name;
+            if (sender.codec_payload_type) {
+                stats.codecPayloadType = *sender.codec_payload_type;
+                if (const auto codec = info.send_codecs.find(*sender.codec_payload_type); codec != info.send_codecs.end()) {
+                    stats.codecName = codec->second.name;
+                }
+            }
+            stats.encoderImplementation = sender.encoder_implementation_name.value_or("");
+            if (sender.power_efficient_encoder) {
+                stats.powerEfficientEncoder = *sender.power_efficient_encoder ? 1 : 0;
+            }
+            if (sender.target_bitrate) {
+                stats.targetBitrateBps = sender.target_bitrate->bps();
+            }
+            stats.mediaBitrateBps = sender.nominal_bitrate;
+            stats.bytesSent = sender.payload_bytes_sent + sender.header_and_padding_bytes_sent;
+            stats.retransmittedBytesSent = static_cast<int64_t>(sender.retransmitted_bytes_sent);
+            stats.packetsSent = sender.packets_sent;
+            stats.packetsLost = sender.packets_lost;
+            stats.fractionLost = sender.fraction_lost;
+            stats.senderRttMs = sender.rtt_ms;
+            stats.frameWidth = sender.send_frame_width;
+            stats.frameHeight = sender.send_frame_height;
+            stats.framerateInput = sender.framerate_input;
+            stats.framerateSent = sender.framerate_sent;
+            switch (sender.quality_limitation_reason) {
+                case webrtc::QualityLimitationReason::kNone: stats.qualityLimitationReason = "none"; break;
+                case webrtc::QualityLimitationReason::kCpu: stats.qualityLimitationReason = "cpu"; break;
+                case webrtc::QualityLimitationReason::kBandwidth: stats.qualityLimitationReason = "bandwidth"; break;
+                case webrtc::QualityLimitationReason::kOther: stats.qualityLimitationReason = "other"; break;
+            }
+            stats.qualityLimitationResolutionChanges = sender.quality_limitation_resolution_changes;
+            if (sender.qp_sum) {
+                stats.qpSum = static_cast<int64_t>(*sender.qp_sum);
+            }
+            stats.framesEncoded = sender.frames_encoded;
+            stats.keyFramesEncoded = sender.key_frames_encoded;
+            stats.framesSent = sender.frames_sent;
+            stats.hugeFramesSent = sender.huge_frames_sent;
+            stats.totalEncodedBytesTarget = static_cast<int64_t>(sender.total_encoded_bytes_target);
+            stats.avgEncodeMs = sender.avg_encode_ms;
+            stats.encodeUsagePercent = sender.encode_usage_percent;
+            stats.nacksReceived = sender.nacks_received;
+            stats.firsReceived = sender.firs_received;
+            stats.plisReceived = sender.plis_received;
+            return stats;
+        });
+    }
+
     void NativeNetworkInterface::enableAudioIncoming(const bool enable) {
         if (audioIncoming == enable) {
             return;

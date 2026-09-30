@@ -18,6 +18,7 @@
 #include <wrtc/interfaces/media/channels/outgoing_video_channel.hpp>
 #include <wrtc/interfaces/media/channels/incoming_audio_channel.hpp>
 #include <wrtc/interfaces/media/channels/incoming_video_channel.hpp>
+#include <wrtc/models/outgoing_video_stats.hpp>
 #include <pc/sdp_payload_type_suggester.h>
 
 namespace wrtc {
@@ -128,6 +129,10 @@ namespace wrtc {
         std::vector<std::string> getEndpoints() const;
 
         ConnectionMode getConnectionMode() const override;
+
+        // Retinal stats seam: read-only snapshot of the outgoing video, taken on
+        // the worker thread; nullopt once the call is gone.
+        std::optional<OutgoingVideoStats> getOutgoingVideoStats();
 
         void enableAudioIncoming(bool enable) override;
 
