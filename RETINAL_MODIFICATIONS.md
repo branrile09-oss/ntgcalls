@@ -6,9 +6,9 @@ It is not an official ntgcalls release.
 | | |
 |---|---|
 | Upstream base | ntgcalls v2.2.5, commit `1f4e4baadc77ce74753c037741c21ca95b1ca737` |
-| Modified version | `2.2.5+retinal.2` (Android `BuildConfig.VERSION_NAME`; `version.retinal` in `version.properties`) |
+| Modified version | `2.2.5+retinal.3` (Android `BuildConfig.VERSION_NAME`; `version.retinal` in `version.properties`) |
 | Modified by | Riley Branson, for the Retinal Android application |
-| Date of modification | 2026-09-30 (`+retinal.1`: codec preference; `+retinal.2`: outgoing video statistics) |
+| Date of modification | 2026-09-30 (`+retinal.1`: codec preference; `+retinal.2`: outgoing video statistics; `+retinal.3`: opt-in encoder factory without shared EGL context) |
 | Licence | GNU LGPL-3.0, the same as upstream (see `LICENSE`). The modifications are licensed under LGPL-3.0. |
 
 ## What was changed
@@ -74,9 +74,39 @@ Files:
 
 Changed hunks are marked `Retinal stats seam`.
 
-### 3. Version identification (2026-09-30)
+### 3. Opt-in hardware video encoder factory without shared EGL context (2026-09-30, `+retinal.3`)
 
-- `version.properties`: `version.retinal=2` (was `1` for `2.2.5+retinal.1`)
+Upstream always creates the Android hardware video encoder factory with the
+shared EGL context, so every hardware encoder first starts in surface
+(texture) mode. An application that only sends I420 frames through
+`sendExternalFrame` then gets that encoder released and re-created in
+byte-buffer mode on the first frame, after every encoder (re)initialization,
+for example on each frame-size change.
+
+`NTgCalls.setVideoEncoderSharedEglContext(false)` lets such an application
+create the encoder factory without the shared EGL context, so encoders start
+in byte-buffer mode directly.
+
+- Opt-in. The default (`true`) is upstream behaviour, and nothing changes
+  unless the application calls it.
+- Process-wide, because the encoder factory is created once per process. It
+  applies only if called before the first call creates the factory, and
+  returns whether it was applied.
+- The decoder factory, codec negotiation, bandwidth estimation, the
+  degradation preference and frame geometry are unchanged.
+
+Files:
+
+- `android/app/src/main/java/io/github/pytgcalls/NTgCalls.java`: `setVideoEncoderSharedEglContext(boolean enabled)`
+- `android/app/src/main/jni/ntgcalls.cpp`: JNI entry point
+- `ntgcalls/include/ntgcalls/ntgcalls.hpp`, `ntgcalls/src/ntgcalls.cpp`: `NTgCalls::setVideoEncoderSharedEglContext`
+- `wrtc/include/wrtc/video_factory/hardware/android/video_factory.hpp`, `wrtc/src/video_factory/hardware/android/video_factory.cpp`: the setting, applied when the encoder factory is created
+
+Changed hunks are marked `Retinal encoder config`.
+
+### 4. Version identification (2026-09-30)
+
+- `version.properties`: `version.retinal=3` (`1` for `2.2.5+retinal.1`, `2` for `2.2.5+retinal.2`)
 - `android/app/build.gradle`: the Android version name and publication version
   carry the `+retinal.<n>` suffix. (`VERSION_CODE` is unchanged because upstream's
   version-code scheme only understands `-alpha`/`-beta`/`-rc` suffixes.)
