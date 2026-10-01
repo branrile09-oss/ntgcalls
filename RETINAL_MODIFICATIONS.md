@@ -6,9 +6,9 @@ It is not an official ntgcalls release.
 | | |
 |---|---|
 | Upstream base | ntgcalls v2.2.5, commit `1f4e4baadc77ce74753c037741c21ca95b1ca737` |
-| Modified version | `2.2.5+retinal.3` (Android `BuildConfig.VERSION_NAME`; `version.retinal` in `version.properties`) |
+| Modified version | `2.2.5+retinal.4` (Android `BuildConfig.VERSION_NAME`; `version.retinal` in `version.properties`) |
 | Modified by | Riley Branson, for the Retinal Android application |
-| Date of modification | 2026-09-30 (`+retinal.1`: codec preference; `+retinal.2`: outgoing video statistics; `+retinal.3`: opt-in encoder factory without shared EGL context) |
+| Date of modification | 2026-09-30 (`+retinal.1`: codec preference; `+retinal.2`: outgoing video statistics; `+retinal.3`: opt-in encoder factory without shared EGL context); 2026-10-01 (`+retinal.4`: outgoing video maximum bitrate) |
 | Licence | GNU LGPL-3.0, the same as upstream (see `LICENSE`). The modifications are licensed under LGPL-3.0. |
 
 ## What was changed
@@ -104,9 +104,38 @@ Files:
 
 Changed hunks are marked `Retinal encoder config`.
 
-### 4. Version identification (2026-09-30)
+### 4. Outgoing video maximum bitrate (2026-10-01, `+retinal.4`)
 
-- `version.properties`: `version.retinal=3` (`1` for `2.2.5+retinal.1`, `2` for `2.2.5+retinal.2`)
+Upstream sets no maximum for the outgoing video of a P2P call, so WebRTC
+applies its resolution-based default ceiling (2.5 Mbps above 960x540, less
+below). `NTgCalls.setOutgoingVideoMaxBitrate(chatId, bps)` lets the
+application set `encodings[0].max_bitrate_bps` of the outgoing video sender
+through `SetRtpSendParameters` (on WebRTC's worker thread). `bps <= 0` clears
+it, so WebRTC's defaults apply again.
+
+- It is a ceiling only. WebRTC's bandwidth estimation and bitrate allocation
+  still choose the actual bitrate below it.
+- Applied immediately during a call, and remembered for a video channel
+  created later.
+- Without a call to it, behaviour is upstream's.
+- Codec negotiation, the degradation preference and the encoder factory are
+  unchanged.
+
+Files:
+
+- `android/app/src/main/java/io/github/pytgcalls/NTgCalls.java`: `setOutgoingVideoMaxBitrate(long chatId, int bps)`
+- `android/app/src/main/jni/ntgcalls.cpp`: JNI entry point
+- `ntgcalls/include/ntgcalls/ntgcalls.hpp`, `ntgcalls/src/ntgcalls.cpp`: `NTgCalls::setOutgoingVideoMaxBitrate`
+- `ntgcalls/include/ntgcalls/instances/p2p_call.hpp`, `ntgcalls/src/instances/p2p_call.cpp`: forward to the native connection
+- `wrtc/include/wrtc/interfaces/native_network_interface.hpp`, `wrtc/src/interfaces/native_network_interface.cpp`: remember the value and apply it on the worker thread
+- `wrtc/src/interfaces/native_connection.cpp`: apply a remembered value when the video channel is created
+- `wrtc/include/wrtc/interfaces/media/channels/outgoing_video_channel.hpp`, `wrtc/src/interfaces/media/channels/outgoing_video_channel.cpp`: set `encodings[0].max_bitrate_bps`
+
+Changed hunks are marked `Retinal max bitrate seam`.
+
+### 5. Version identification
+
+- `version.properties`: `version.retinal=4` (`1`, `2`, `3` for `2.2.5+retinal.1`, `.2`, `.3`)
 - `android/app/build.gradle`: the Android version name and publication version
   carry the `+retinal.<n>` suffix. (`VERSION_CODE` is unchanged because upstream's
   version-code scheme only understands `-alpha`/`-beta`/`-rc` suffixes.)
