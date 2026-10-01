@@ -6,9 +6,9 @@ It is not an official ntgcalls release.
 | | |
 |---|---|
 | Upstream base | ntgcalls v2.2.5, commit `1f4e4baadc77ce74753c037741c21ca95b1ca737` |
-| Modified version | `2.2.5+retinal.4` (Android `BuildConfig.VERSION_NAME`; `version.retinal` in `version.properties`) |
+| Modified version | `2.2.5+retinal.5` (Android `BuildConfig.VERSION_NAME`; `version.retinal` in `version.properties`) |
 | Modified by | Riley Branson, for the Retinal Android application |
-| Date of modification | 2026-09-30 (`+retinal.1`: codec preference; `+retinal.2`: outgoing video statistics; `+retinal.3`: opt-in encoder factory without shared EGL context); 2026-10-01 (`+retinal.4`: outgoing video maximum bitrate) |
+| Date of modification | 2026-09-30 (`+retinal.1`: codec preference; `+retinal.2`: outgoing video statistics; `+retinal.3`: opt-in encoder factory without shared EGL context); 2026-10-01 (`+retinal.4`: outgoing video maximum bitrate; `+retinal.5`: hardware-only AV1) |
 | Licence | GNU LGPL-3.0, the same as upstream (see `LICENSE`). The modifications are licensed under LGPL-3.0. |
 
 ## What was changed
@@ -133,9 +133,45 @@ Files:
 
 Changed hunks are marked `Retinal max bitrate seam`.
 
-### 5. Version identification
+### 6. Hardware-only AV1 for P2P calls (2026-10-01, `+retinal.5`)
 
-- `version.properties`: `version.retinal=4` (`1`, `2`, `3` for `2.2.5+retinal.1`, `.2`, `.3`)
+Upstream's Android codec factories are WebRTC's stock
+`DefaultVideoEncoderFactory`/`DefaultVideoDecoderFactory`, which include
+software AV1 (libaom for encoding; dav1d and platform software decoders for
+decoding) alongside hardware codecs. `NTgCalls.setAv1HardwareCapabilities(encode, decode)`
+lets the application make AV1 hardware-only:
+
+- With `encode`, AV1 is offered and its encoder is created only through
+  WebRTC's public `org.webrtc.HardwareVideoEncoderFactory`; libaom is never
+  offered or used, and there is no software fallback. With `encode` false,
+  AV1 is not offered for sending at all.
+- With `decode`, AV1 is accepted and its decoder is created only through
+  WebRTC's public `org.webrtc.HardwareVideoDecoderFactory`; dav1d and
+  platform software decoders are never used. With `decode` false, AV1 is not
+  accepted for receiving at all.
+- For 1:1 calls the incoming video channel also advertises the hardware AV1
+  decoder formats (upstream's incoming channel lists only VP8, VP9 and H.264).
+- The two directions are independent, so a device can receive AV1 without
+  being able to send it.
+- All other codecs keep the stock factories. Codec order, and therefore
+  which codec is preferred, is unchanged; the application chooses order
+  through section 1's seam.
+- Process-wide, applied only before the codec factories are first created.
+  Without a call to it, behaviour is upstream's.
+
+Files:
+
+- `android/app/src/main/java/io/github/pytgcalls/NTgCalls.java`: `setAv1HardwareCapabilities(boolean encode, boolean decode)`
+- `android/app/src/main/jni/ntgcalls.cpp`: JNI entry point
+- `ntgcalls/include/ntgcalls/ntgcalls.hpp`, `ntgcalls/src/ntgcalls.cpp`: `NTgCalls::setAv1HardwareCapabilities`
+- `wrtc/include/wrtc/video_factory/hardware/android/video_factory.hpp`, `wrtc/src/video_factory/hardware/android/video_factory.cpp`: the setting and the hardware-only AV1 encoder/decoder factory wrappers
+- `wrtc/src/interfaces/native_network_interface.cpp`: add the hardware AV1 decoder formats to 1:1 incoming video
+
+Changed hunks are marked `Retinal AV1 hardware config`.
+
+### 7. Version identification
+
+- `version.properties`: `version.retinal=5` (`1`–`4` for `2.2.5+retinal.1` to `.4`)
 - `android/app/build.gradle`: the Android version name and publication version
   carry the `+retinal.<n>` suffix. (`VERSION_CODE` is unchanged because upstream's
   version-code scheme only understands `-alpha`/`-beta`/`-rc` suffixes.)
