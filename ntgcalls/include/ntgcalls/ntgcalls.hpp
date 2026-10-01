@@ -126,6 +126,10 @@ namespace ntgcalls {
         // Always false (not applied) on non-Android builds.
         static bool setVideoEncoderSharedEglContext(bool enabled);
 
+        // Retinal AV1 hardware config: see android::setAv1HardwareCapabilities.
+        // Always false (not applied) on non-Android builds.
+        static bool setAv1HardwareCapabilities(bool encode, bool decode);
+
 #ifndef IS_ANDROID
         static void enableGlibLoop(bool enable);
 #endif

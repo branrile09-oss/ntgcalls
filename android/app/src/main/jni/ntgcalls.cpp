@@ -323,6 +323,12 @@ JNIEXPORT jboolean JNICALL Java_io_github_pytgcalls_NTgCalls_setVideoEncoderShar
     return ntgcalls::NTgCalls::setVideoEncoderSharedEglContext(enabled == JNI_TRUE) ? JNI_TRUE : JNI_FALSE;
 }
 
+// Retinal AV1 hardware config
+extern "C"
+JNIEXPORT jboolean JNICALL Java_io_github_pytgcalls_NTgCalls_setAv1HardwareCapabilities(JNIEnv*, jclass, jboolean encode, jboolean decode) {
+    return ntgcalls::NTgCalls::setAv1HardwareCapabilities(encode == JNI_TRUE, decode == JNI_TRUE) ? JNI_TRUE : JNI_FALSE;
+}
+
 REGISTER_CALLBACK(setUpgradeCallback, onUpgrade, "(JLio/github/pytgcalls/media/MediaState;)V")
 
 REGISTER_CALLBACK(setStreamEndCallback, onStreamEnd, "(JLio/github/pytgcalls/media/StreamType;)V")

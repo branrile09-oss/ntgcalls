@@ -2,6 +2,9 @@
 // Created by Laky64 on 01/10/24.
 //
 
+#ifdef IS_ANDROID
+#include <wrtc/video_factory/hardware/android/video_factory.hpp>
+#endif
 #include <ranges>
 #include <p2p/base/basic_async_resolver_factory.h>
 #include <p2p/base/p2p_constants.h>
@@ -108,6 +111,15 @@ namespace wrtc {
             );
         });
         availableVideoFormats = filterSupportedVideoFormats(factory->getSupportedVideoFormats());
+#ifdef IS_ANDROID
+        // Retinal AV1 hardware config: 1:1 incoming video may use AV1 only
+        // through a hardware decoder (empty unless enabled and present).
+        if (!isGroupConnection()) {
+            for (auto& format : android::av1IncomingVideoFormats()) {
+                availableVideoFormats.push_back(std::move(format));
+            }
+        }
+#endif
     }
 
     void NativeNetworkInterface::addIncomingSmartSource(const std::string& endpoint, const MediaContent& mediaContent, const bool force) {

@@ -93,6 +93,14 @@ public class NTgCalls {
     // Process-wide; returns false if the encoder factory already exists.
     public static native boolean setVideoEncoderSharedEglContext(boolean enabled);
 
+    // Retinal AV1 hardware config: opt in to hardware-only AV1 for 1:1 calls.
+    // encode: AV1 may be offered and sent only through a hardware encoder;
+    // decode: AV1 may be accepted and received only through a hardware decoder.
+    // Once called, AV1 never uses a software encoder or decoder (no libaom,
+    // dav1d or platform software fallback). Never calling it keeps upstream
+    // behaviour. Process-wide; returns false if the codec factories already exist.
+    public static native boolean setAv1HardwareCapabilities(boolean encode, boolean decode);
+
     public static native MediaDevices getMediaDevices();
 
     public static long ping() {

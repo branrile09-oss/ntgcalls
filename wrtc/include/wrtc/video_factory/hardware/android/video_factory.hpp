@@ -17,6 +17,21 @@ namespace android {
     // returns whether the setting was applied.
     bool setVideoEncoderSharedEglContext(bool enabled);
 
+    // Retinal AV1 hardware config: once called, AV1 is hardware-only. With
+    // encode, AV1 is offered and created only through the Android hardware
+    // encoder factory (never libaom); with decode, it is accepted and created
+    // only through the hardware decoder factory (never dav1d or a platform
+    // software decoder). A false direction has no AV1 at all. Other codecs
+    // keep the stock factories. Never called: upstream behaviour.
+    // Process-wide: applies only before the codec factories are first
+    // created; returns whether the setting was applied.
+    bool setAv1HardwareCapabilities(bool encode, bool decode);
+
+    // Retinal AV1 hardware config: the AV1 formats the hardware decoder
+    // factory offers for 1:1 incoming video; empty unless hardware AV1 decode
+    // was enabled and a hardware AV1 decoder exists.
+    std::vector<webrtc::SdpVideoFormat> av1IncomingVideoFormats();
+
     std::unique_ptr<webrtc::VideoEncoderFactory> CreateVideoEncoderFactory(JNIEnv* env);
 
     std::unique_ptr<webrtc::VideoDecoderFactory> CreateVideoDecoderFactory(JNIEnv* env);

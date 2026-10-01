@@ -429,6 +429,16 @@ namespace ntgcalls {
 #endif
     }
 
+    bool NTgCalls::setAv1HardwareCapabilities(const bool encode, const bool decode) {
+#ifdef IS_ANDROID
+        return android::setAv1HardwareCapabilities(encode, decode);
+#else
+        (void) encode;
+        (void) decode;
+        return false;
+#endif
+    }
+
     MediaDevices NTgCalls::getMediaDevices() {
         const auto devices = MediaDevice::GetAudioDevices();
         std::vector<DeviceInfo> microphones, speakers;
