@@ -57,6 +57,9 @@ namespace ntgcalls {
         // Retinal stats seam: read-only; nullopt before the connection exists.
         std::optional<wrtc::OutgoingVideoStats> getOutgoingVideoStats() const;
 
+        // Retinal max bitrate seam
+        void setOutgoingVideoMaxBitrate(int bps) const;
+
         Type type() const override;
 
         void onSignalingData(const std::function<void(const bytes::binary&)>& callback);

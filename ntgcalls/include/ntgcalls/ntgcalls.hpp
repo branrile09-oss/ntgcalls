@@ -110,6 +110,10 @@ namespace ntgcalls {
         // nullopt before the call's media exists.
         ASYNC_RETURN(std::optional<wrtc::OutgoingVideoStats>) getOutgoingVideoStats(int64_t chatId);
 
+        // Retinal max bitrate seam: ceiling for the outgoing video bitrate of a P2P
+        // call (bps <= 0 clears it); applied now or when the video channel is created.
+        ASYNC_RETURN(void) setOutgoingVideoMaxBitrate(int64_t chatId, int bps);
+
         ASYNC_RETURN(double) cpuUsage() const;
 
         static std::string ping();

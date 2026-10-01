@@ -135,5 +135,10 @@ public class NTgCalls {
     // (bandwidth estimate, codec, encoder, loss, RTT); null before it exists.
     public native OutgoingVideoStats getOutgoingVideoStats(long chatId) throws ConnectionNotFoundException;
 
+    // Retinal max bitrate seam: ceiling (bps) for the outgoing video bitrate of a P2P
+    // call; WebRTC still chooses the actual bitrate below it. 0 clears it (WebRTC
+    // defaults). Applies to the live call, or when its video channel is created.
+    public native void setOutgoingVideoMaxBitrate(long chatId, int bps) throws ConnectionNotFoundException;
+
     public native Map<Long, CallInfo> calls();
 }

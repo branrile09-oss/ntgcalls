@@ -20,6 +20,7 @@
 #include <wrtc/interfaces/media/channels/incoming_video_channel.hpp>
 #include <wrtc/models/outgoing_video_stats.hpp>
 #include <pc/sdp_payload_type_suggester.h>
+#include <atomic>
 
 namespace wrtc {
 
@@ -62,6 +63,7 @@ namespace wrtc {
         std::unique_ptr<ChannelManager> channelManager;
         std::unique_ptr<OutgoingAudioChannel> audioChannel;
         std::unique_ptr<OutgoingVideoChannel> videoChannel;
+        std::atomic<int> outgoingVideoMaxBitrate{0}; // Retinal max bitrate seam
         PeerIceParameters localParameters, remoteParameters;
         std::unique_ptr<webrtc::DtlsTransportInternal> dtlsTransport;
         std::unique_ptr<webrtc::DtlsSrtpTransport> dtlsSrtpTransport;
@@ -133,6 +135,11 @@ namespace wrtc {
         // Retinal stats seam: read-only snapshot of the outgoing video, taken on
         // the worker thread; nullopt once the call is gone.
         std::optional<OutgoingVideoStats> getOutgoingVideoStats();
+
+        // Retinal max bitrate seam: outgoing video max bitrate (bps <= 0 clears);
+        // applied now on the worker thread if the channel exists, and remembered
+        // for a channel created later.
+        void setOutgoingVideoMaxBitrate(int bps);
 
         void enableAudioIncoming(bool enable) override;
 

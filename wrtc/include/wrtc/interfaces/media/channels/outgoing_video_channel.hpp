@@ -43,5 +43,9 @@ namespace wrtc {
 
         // Retinal stats seam: read-only; call on the worker thread.
         bool getStats(webrtc::VideoMediaSendInfo* info) const;
+
+        // Retinal max bitrate seam: sets encodings[0].max_bitrate_bps (a ceiling for
+        // WebRTC's own allocation); bps <= 0 clears it (WebRTC defaults). Worker thread.
+        void setMaxBitrate(int bps) const;
     };
 } // wrtc

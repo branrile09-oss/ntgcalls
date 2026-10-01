@@ -328,6 +328,18 @@ namespace wrtc {
         return ConnectionMode::Rtc;
     }
 
+    // Retinal max bitrate seam
+    void NativeNetworkInterface::setOutgoingVideoMaxBitrate(const int bps) {
+        outgoingVideoMaxBitrate = bps;
+        std::weak_ptr weak(shared_from_this());
+        workerThread().BlockingCall([weak, bps] {
+            const auto strong = weak.lock();
+            if (strong && strong->videoChannel) {
+                strong->videoChannel->setMaxBitrate(bps);
+            }
+        });
+    }
+
     // Retinal stats seam: copies existing statistics only; changes nothing.
     std::optional<OutgoingVideoStats> NativeNetworkInterface::getOutgoingVideoStats() {
         std::weak_ptr weak(shared_from_this());

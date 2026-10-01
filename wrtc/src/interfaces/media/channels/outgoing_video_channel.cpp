@@ -141,6 +141,24 @@ namespace wrtc {
         return _ssrc;
     }
 
+    void OutgoingVideoChannel::setMaxBitrate(const int bps) const {
+        workerThread.BlockingCall([&] {
+            webrtc::RtpParameters rtpParameters = channel->video_media_send_channel()->GetRtpSendParameters(_ssrc);
+            if (rtpParameters.encodings.empty()) {
+                RTC_LOG(LS_WARNING) << "[Retinal max bitrate seam] no encodings";
+                return;
+            }
+            if (bps > 0) {
+                rtpParameters.encodings[0].max_bitrate_bps = bps;
+            } else {
+                rtpParameters.encodings[0].max_bitrate_bps = std::nullopt;
+            }
+            const auto result = channel->video_media_send_channel()->SetRtpSendParameters(_ssrc, rtpParameters);
+            RTC_LOG(LS_INFO) << "[Retinal max bitrate seam] encodings[0].max_bitrate_bps="
+                             << bps << " result=" << (result.ok() ? "ok" : result.message());
+        });
+    }
+
     bool OutgoingVideoChannel::getStats(webrtc::VideoMediaSendInfo* info) const {
         return channel && channel->video_media_send_channel()->GetStats(info);
     }

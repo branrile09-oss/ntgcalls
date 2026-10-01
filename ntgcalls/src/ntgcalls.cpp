@@ -328,6 +328,12 @@ namespace ntgcalls {
         END_ASYNC
     }
 
+    ASYNC_RETURN(void) NTgCalls::setOutgoingVideoMaxBitrate(const int64_t chatId, const int bps) {
+        SMART_ASYNC(this, chatId, bps)
+        SafeCall<P2PCall>(safeConnection(chatId))->setOutgoingVideoMaxBitrate(bps);
+        END_ASYNC
+    }
+
     ASYNC_RETURN(std::optional<wrtc::OutgoingVideoStats>) NTgCalls::getOutgoingVideoStats(const int64_t chatId) {
         SMART_ASYNC(this, chatId)
         return SafeCall<P2PCall>(safeConnection(chatId))->getOutgoingVideoStats();

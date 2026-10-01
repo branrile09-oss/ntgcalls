@@ -253,6 +253,9 @@ namespace wrtc {
                             &videoSink,
                             outgoingVideoCodecPreferences
                         );
+                        if (const int maxBitrate = outgoingVideoMaxBitrate; maxBitrate > 0) { // Retinal max bitrate seam
+                            videoChannel->setMaxBitrate(maxBitrate);
+                        }
                     }
                 }
             }

@@ -118,6 +118,12 @@ namespace ntgcalls {
         outgoingVideoCodecPreferences = std::move(preferences);
     }
 
+    void P2PCall::setOutgoingVideoMaxBitrate(const int bps) const {
+        if (const auto nativeConnection = std::dynamic_pointer_cast<wrtc::NativeConnection>(connection)) {
+            nativeConnection->setOutgoingVideoMaxBitrate(bps);
+        }
+    }
+
     std::optional<wrtc::OutgoingVideoStats> P2PCall::getOutgoingVideoStats() const {
         const auto nativeConnection = std::dynamic_pointer_cast<wrtc::NativeConnection>(connection);
         if (!nativeConnection) {

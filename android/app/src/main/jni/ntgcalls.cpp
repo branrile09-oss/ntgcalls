@@ -286,6 +286,15 @@ JNIEXPORT jobject JNICALL Java_io_github_pytgcalls_NTgCalls_getState(JNIEnv *env
     return nullptr;
 }
 
+// Retinal max bitrate seam
+extern "C"
+JNIEXPORT void JNICALL Java_io_github_pytgcalls_NTgCalls_setOutgoingVideoMaxBitrate(JNIEnv *env, jobject thiz, jlong chat_id, jint bps) {
+    try {
+        auto instance = getInstance(env, thiz);
+        instance->setOutgoingVideoMaxBitrate(static_cast<long>(chat_id), static_cast<int>(bps));
+    } HANDLE_EXCEPTIONS
+}
+
 // Retinal stats seam
 extern "C"
 JNIEXPORT jobject JNICALL Java_io_github_pytgcalls_NTgCalls_getOutgoingVideoStats(JNIEnv *env, jobject thiz, jlong chat_id) {
