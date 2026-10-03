@@ -39,6 +39,14 @@ namespace android {
     // whether the setting was applied. Default false: upstream behaviour.
     bool setVideoEncoderHandover(bool enabled);
 
+    // Retinal adaptive decoder: when enabled, hardware decoders come from
+    // org.webrtc.RetinalAdaptiveVideoDecoderFactory (WebRTC's hardware codec
+    // selection; decoders with adaptive playback keep running across frame-size
+    // changes). Software fallbacks are unchanged. Process-wide; applies only
+    // before the decoder factory is first created; returns whether the setting
+    // was applied. Default false: upstream behaviour.
+    bool setVideoDecoderAdaptivePlayback(bool enabled);
+
     std::unique_ptr<webrtc::VideoEncoderFactory> CreateVideoEncoderFactory(JNIEnv* env);
 
     std::unique_ptr<webrtc::VideoDecoderFactory> CreateVideoDecoderFactory(JNIEnv* env);

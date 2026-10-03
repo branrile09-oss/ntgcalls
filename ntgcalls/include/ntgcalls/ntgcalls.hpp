@@ -134,6 +134,10 @@ namespace ntgcalls {
         // Always false (not applied) on non-Android builds.
         static bool setVideoEncoderHandover(bool enabled);
 
+        // Retinal adaptive decoder: see android::setVideoDecoderAdaptivePlayback.
+        // Always false (not applied) on non-Android builds.
+        static bool setVideoDecoderAdaptivePlayback(bool enabled);
+
 #ifndef IS_ANDROID
         static void enableGlibLoop(bool enable);
 #endif

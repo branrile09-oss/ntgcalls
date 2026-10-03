@@ -108,6 +108,12 @@ public class NTgCalls {
     // factory already exists. Never called (or false): upstream behaviour.
     public static native boolean setVideoEncoderHandover(boolean enabled);
 
+    // Retinal adaptive decoder: hardware video decoders that support adaptive
+    // playback keep running when the incoming frame size changes, instead of
+    // being released and re-created. Process-wide; returns false if the decoder
+    // factory already exists. Never called (or false): upstream behaviour.
+    public static native boolean setVideoDecoderAdaptivePlayback(boolean enabled);
+
     public static native MediaDevices getMediaDevices();
 
     public static long ping() {

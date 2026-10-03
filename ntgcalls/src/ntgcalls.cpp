@@ -448,6 +448,15 @@ namespace ntgcalls {
 #endif
     }
 
+    bool NTgCalls::setVideoDecoderAdaptivePlayback(const bool enabled) {
+#ifdef IS_ANDROID
+        return android::setVideoDecoderAdaptivePlayback(enabled);
+#else
+        (void) enabled;
+        return false;
+#endif
+    }
+
     MediaDevices NTgCalls::getMediaDevices() {
         const auto devices = MediaDevice::GetAudioDevices();
         std::vector<DeviceInfo> microphones, speakers;

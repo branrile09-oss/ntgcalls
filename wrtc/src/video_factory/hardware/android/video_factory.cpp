@@ -30,6 +30,9 @@ namespace android {
         // Retinal encoder handover (guarded by encoderConfigMutex).
         bool encoderHandover = false;
 
+        // Retinal adaptive decoder (guarded by encoderConfigMutex).
+        bool decoderAdaptivePlayback = false;
+
         std::unique_ptr<webrtc::VideoEncoderFactory> withHandover(std::unique_ptr<webrtc::VideoEncoderFactory> factory, const bool enabled) {
             if (!enabled) return factory;
             RTC_LOG(LS_INFO) << "[Retinal handover] encoder handover on frame-size changes enabled";
@@ -172,6 +175,15 @@ namespace android {
         return true;
     }
 
+    bool setVideoDecoderAdaptivePlayback(const bool enabled) {
+        std::lock_guard lock(encoderConfigMutex);
+        if (decoderFactoryCreated) {
+            return false;
+        }
+        decoderAdaptivePlayback = enabled;
+        return true;
+    }
+
     bool setVideoEncoderSharedEglContext(const bool enabled) {
         std::lock_guard lock(encoderConfigMutex);
         if (encoderFactoryCreated) {
@@ -236,18 +248,24 @@ namespace android {
     std::unique_ptr<webrtc::VideoDecoderFactory> CreateVideoDecoderFactory(JNIEnv* env) {
         bool av1Wrap;
         bool av1Decode;
+        bool adaptive;
         {
             std::lock_guard lock(encoderConfigMutex);
             decoderFactoryCreated = true;
             av1Wrap = av1Configured;
             av1Decode = av1HardwareDecode;
+            adaptive = decoderAdaptivePlayback;
+        }
+        if (adaptive) {
+            RTC_LOG(LS_INFO) << "[Retinal adaptive decoder] hardware decoders follow frame-size changes";
         }
         const webrtc::ScopedJavaLocalRef<jclass> javaVideoCapturerModule = webrtc::GetClass(env, "io/github/pytgcalls/devices/JavaVideoCapturerModule");
         // ReSharper disable once CppLocalVariableMayBeConst
         jmethodID getEglContext = env->GetStaticMethodID(javaVideoCapturerModule.obj(), "getSharedEGLContext", "()Lorg/webrtc/EglBase$Context;");
         const auto eglContext = env->CallStaticObjectMethod(javaVideoCapturerModule.obj(), getEglContext);
 
-        const webrtc::ScopedJavaLocalRef<jclass> factoryClass = webrtc::GetClass(env, "org/webrtc/DefaultVideoDecoderFactory");
+        // Retinal adaptive decoder: the same combination with the adaptive hardware factory.
+        const webrtc::ScopedJavaLocalRef<jclass> factoryClass = webrtc::GetClass(env, adaptive ? "org/webrtc/RetinalDefaultVideoDecoderFactory" : "org/webrtc/DefaultVideoDecoderFactory");
         // ReSharper disable once CppLocalVariableMayBeConst
         jmethodID factoryConstructor = env->GetMethodID(factoryClass.obj(), "<init>", "(Lorg/webrtc/EglBase$Context;)V");
         const auto factoryObject = webrtc::ScopedJavaLocalRef<>::Adopt(
@@ -262,7 +280,7 @@ namespace android {
         if (av1Decode) {
             // The same hardware factory DefaultVideoDecoderFactory wraps, without
             // its software (dav1d) and platform software sides.
-            const webrtc::ScopedJavaLocalRef<jclass> hardwareClass = webrtc::GetClass(env, "org/webrtc/HardwareVideoDecoderFactory");
+            const webrtc::ScopedJavaLocalRef<jclass> hardwareClass = webrtc::GetClass(env, adaptive ? "org/webrtc/RetinalAdaptiveVideoDecoderFactory" : "org/webrtc/HardwareVideoDecoderFactory");
             // ReSharper disable once CppLocalVariableMayBeConst
             jmethodID hardwareConstructor = env->GetMethodID(hardwareClass.obj(), "<init>", "(Lorg/webrtc/EglBase$Context;)V");
             const auto hardwareObject = webrtc::ScopedJavaLocalRef<>::Adopt(

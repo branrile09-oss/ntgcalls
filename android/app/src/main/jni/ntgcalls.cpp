@@ -335,6 +335,12 @@ JNIEXPORT jboolean JNICALL Java_io_github_pytgcalls_NTgCalls_setVideoEncoderHand
     return ntgcalls::NTgCalls::setVideoEncoderHandover(enabled == JNI_TRUE) ? JNI_TRUE : JNI_FALSE;
 }
 
+// Retinal adaptive decoder
+extern "C"
+JNIEXPORT jboolean JNICALL Java_io_github_pytgcalls_NTgCalls_setVideoDecoderAdaptivePlayback(JNIEnv*, jclass, jboolean enabled) {
+    return ntgcalls::NTgCalls::setVideoDecoderAdaptivePlayback(enabled == JNI_TRUE) ? JNI_TRUE : JNI_FALSE;
+}
+
 REGISTER_CALLBACK(setUpgradeCallback, onUpgrade, "(JLio/github/pytgcalls/media/MediaState;)V")
 
 REGISTER_CALLBACK(setStreamEndCallback, onStreamEnd, "(JLio/github/pytgcalls/media/StreamType;)V")
