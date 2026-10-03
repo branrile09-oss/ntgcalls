@@ -6,9 +6,9 @@ It is not an official ntgcalls release.
 | | |
 |---|---|
 | Upstream base | ntgcalls v2.2.5, commit `1f4e4baadc77ce74753c037741c21ca95b1ca737` |
-| Modified version | `2.2.5+retinal.5` (Android `BuildConfig.VERSION_NAME`; `version.retinal` in `version.properties`) |
+| Modified version | `2.2.5+retinal.6` (Android `BuildConfig.VERSION_NAME`; `version.retinal` in `version.properties`) |
 | Modified by | Riley Branson, for the Retinal Android application |
-| Date of modification | 2026-09-30 (`+retinal.1`: codec preference; `+retinal.2`: outgoing video statistics; `+retinal.3`: opt-in encoder factory without shared EGL context); 2026-10-01 (`+retinal.4`: outgoing video maximum bitrate; `+retinal.5`: hardware-only AV1) |
+| Date of modification | 2026-09-30 (`+retinal.1`: codec preference; `+retinal.2`: outgoing video statistics; `+retinal.3`: opt-in encoder factory without shared EGL context); 2026-10-01 (`+retinal.4`: outgoing video maximum bitrate; `+retinal.5`: hardware-only AV1); 2026-10-03 (`+retinal.6`: encoder handover on frame-size changes) |
 | Licence | GNU LGPL-3.0, the same as upstream (see `LICENSE`). The modifications are licensed under LGPL-3.0. |
 
 ## What was changed
@@ -169,9 +169,48 @@ Files:
 
 Changed hunks are marked `Retinal AV1 hardware config`.
 
-### 7. Version identification
+### 7. Encoder handover on frame-size changes (2026-10-03, `+retinal.6`)
 
-- `version.properties`: `version.retinal=5` (`1`–`4` for `2.2.5+retinal.1` to `.4`)
+When the size of the outgoing video frames changes, WebRTC releases the video
+encoder and starts a new one; on Android's hardware encoders that leaves the
+call without frames until the new encoder produces its first key frame
+(about 230 ms on a Galaxy S21). `NTgCalls.setVideoEncoderHandover(enabled)`
+lets the application replace this with a handover:
+
+- Encoders from the Android video encoder factory are wrapped. On a size
+  change the current encoder keeps encoding (frames fitted to its size: a
+  wider frame is cropped at the centre, a narrower one gets side bars) while
+  a second encoder, created by the same factory, starts at the new size on
+  its own thread.
+- Once the new encoder has produced its first (cold-start) key frame, it is
+  asked for another; the stream switches at that key frame. Old-encoder
+  frames for that frame or later are dropped and earlier ones are sent
+  first, so the stream continues in order without a gap or a duplicate
+  frame. The old encoder is then released.
+- Each inner encoder runs on its own thread, because WebRTC's Java encoders
+  are bound to the thread that first uses them. Releasing never happens
+  while frames are waiting to be delivered.
+- Codec changes and same-size re-initialisations restart the encoder as
+  before. If the new encoder cannot start, the old one is restarted at the
+  new size (upstream behaviour).
+- Process-wide, applied only before the encoder factory is first created;
+  returns whether it was applied. Without a call to it, behaviour is
+  upstream's. Decoders, negotiation, bandwidth estimation, the degradation
+  preference and rate control are unchanged.
+
+Files:
+
+- `android/app/src/main/java/io/github/pytgcalls/NTgCalls.java`: `setVideoEncoderHandover(boolean enabled)`
+- `android/app/src/main/jni/ntgcalls.cpp`: JNI entry point
+- `ntgcalls/include/ntgcalls/ntgcalls.hpp`, `ntgcalls/src/ntgcalls.cpp`: `NTgCalls::setVideoEncoderHandover`
+- `wrtc/include/wrtc/video_factory/hardware/android/video_factory.hpp`, `wrtc/src/video_factory/hardware/android/video_factory.cpp`: the setting, applied when the encoder factory is created
+- `wrtc/include/wrtc/video_factory/hardware/android/handover_encoder.hpp`, `wrtc/src/video_factory/hardware/android/handover_encoder.cpp` (new): the handover encoder and its factory
+
+Changed hunks are marked `Retinal encoder handover`.
+
+### 8. Version identification
+
+- `version.properties`: `version.retinal=6` (`1`–`5` for `2.2.5+retinal.1` to `.5`)
 - `android/app/build.gradle`: the Android version name and publication version
   carry the `+retinal.<n>` suffix. (`VERSION_CODE` is unchanged because upstream's
   version-code scheme only understands `-alpha`/`-beta`/`-rc` suffixes.)
