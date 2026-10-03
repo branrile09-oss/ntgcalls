@@ -130,6 +130,10 @@ namespace ntgcalls {
         // Always false (not applied) on non-Android builds.
         static bool setAv1HardwareCapabilities(bool encode, bool decode);
 
+        // Retinal encoder handover: see android::setVideoEncoderHandover.
+        // Always false (not applied) on non-Android builds.
+        static bool setVideoEncoderHandover(bool enabled);
+
 #ifndef IS_ANDROID
         static void enableGlibLoop(bool enable);
 #endif

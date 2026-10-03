@@ -101,6 +101,13 @@ public class NTgCalls {
     // behaviour. Process-wide; returns false if the codec factories already exist.
     public static native boolean setAv1HardwareCapabilities(boolean encode, boolean decode);
 
+    // Retinal encoder handover: with enabled, a frame-size change no longer
+    // restarts the video encoder with a gap; the old encoder keeps sending
+    // while a new one starts at the new size, and the stream switches at the
+    // new encoder's key frame. Process-wide; returns false if the encoder
+    // factory already exists. Never called (or false): upstream behaviour.
+    public static native boolean setVideoEncoderHandover(boolean enabled);
+
     public static native MediaDevices getMediaDevices();
 
     public static long ping() {

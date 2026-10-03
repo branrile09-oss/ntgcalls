@@ -329,6 +329,12 @@ JNIEXPORT jboolean JNICALL Java_io_github_pytgcalls_NTgCalls_setAv1HardwareCapab
     return ntgcalls::NTgCalls::setAv1HardwareCapabilities(encode == JNI_TRUE, decode == JNI_TRUE) ? JNI_TRUE : JNI_FALSE;
 }
 
+// Retinal encoder handover
+extern "C"
+JNIEXPORT jboolean JNICALL Java_io_github_pytgcalls_NTgCalls_setVideoEncoderHandover(JNIEnv*, jclass, jboolean enabled) {
+    return ntgcalls::NTgCalls::setVideoEncoderHandover(enabled == JNI_TRUE) ? JNI_TRUE : JNI_FALSE;
+}
+
 REGISTER_CALLBACK(setUpgradeCallback, onUpgrade, "(JLio/github/pytgcalls/media/MediaState;)V")
 
 REGISTER_CALLBACK(setStreamEndCallback, onStreamEnd, "(JLio/github/pytgcalls/media/StreamType;)V")

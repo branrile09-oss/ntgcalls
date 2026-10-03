@@ -4,6 +4,7 @@
 
 #ifdef IS_ANDROID
 #include <wrtc/video_factory/hardware/android/video_factory.hpp>
+#include <wrtc/video_factory/hardware/android/handover_encoder.hpp>
 #include <sdk/android/native_api/codecs/wrapper.h>
 #include <sdk/android/native_api/jni/class_loader.h>
 #include <sdk/android/native_api/jni/scoped_java_ref.h>
@@ -25,6 +26,15 @@ namespace android {
         bool av1HardwareDecode = false;
         bool decoderFactoryCreated = false;
         std::vector<webrtc::SdpVideoFormat> av1IncomingFormats;
+
+        // Retinal encoder handover (guarded by encoderConfigMutex).
+        bool encoderHandover = false;
+
+        std::unique_ptr<webrtc::VideoEncoderFactory> withHandover(std::unique_ptr<webrtc::VideoEncoderFactory> factory, const bool enabled) {
+            if (!enabled) return factory;
+            RTC_LOG(LS_INFO) << "[Retinal handover] encoder handover on frame-size changes enabled";
+            return std::make_unique<HandoverEncoderFactory>(std::move(factory));
+        }
 
         bool isAv1(const webrtc::SdpVideoFormat& format) {
             return absl::EqualsIgnoreCase(format.name, webrtc::kAv1CodecName);
@@ -153,6 +163,15 @@ namespace android {
         return av1IncomingFormats;
     }
 
+    bool setVideoEncoderHandover(const bool enabled) {
+        std::lock_guard lock(encoderConfigMutex);
+        if (encoderFactoryCreated) {
+            return false;
+        }
+        encoderHandover = enabled;
+        return true;
+    }
+
     bool setVideoEncoderSharedEglContext(const bool enabled) {
         std::lock_guard lock(encoderConfigMutex);
         if (encoderFactoryCreated) {
@@ -166,9 +185,11 @@ namespace android {
         bool useSharedEglContext;
         bool av1Wrap;
         bool av1Encode;
+        bool handover;
         {
             std::lock_guard lock(encoderConfigMutex);
             encoderFactoryCreated = true;
+            handover = encoderHandover;
             useSharedEglContext = encoderSharedEglContext;
             av1Wrap = av1Configured;
             av1Encode = av1HardwareEncode;
@@ -192,7 +213,7 @@ namespace android {
         );
         auto stock = webrtc::JavaToNativeVideoEncoderFactory(env, factoryObject.obj());
         if (!av1Wrap) {
-            return stock;
+            return withHandover(std::move(stock), handover);
         }
         std::unique_ptr<webrtc::VideoEncoderFactory> av1Hardware;
         if (av1Encode) {
@@ -209,7 +230,7 @@ namespace android {
         auto factory = std::make_unique<Av1HardwareOnlyEncoderFactory>(std::move(stock), std::move(av1Hardware));
         const auto av1 = onlyAv1(factory->GetSupportedFormats());
         RTC_LOG(LS_INFO) << "[Retinal AV1] encoder factory: AV1 " << (av1.empty() ? "not offered" : "hardware only");
-        return factory;
+        return withHandover(std::move(factory), handover);
     }
 
     std::unique_ptr<webrtc::VideoDecoderFactory> CreateVideoDecoderFactory(JNIEnv* env) {

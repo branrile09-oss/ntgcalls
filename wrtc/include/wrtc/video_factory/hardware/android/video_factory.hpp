@@ -32,6 +32,13 @@ namespace android {
     // was enabled and a hardware AV1 decoder exists.
     std::vector<webrtc::SdpVideoFormat> av1IncomingVideoFormats();
 
+    // Retinal encoder handover: with enabled, encoders created by the video
+    // encoder factory hand over to a second encoder on a frame-size change
+    // instead of restarting (see HandoverEncoderFactory). Process-wide:
+    // applies only before the encoder factory is first created; returns
+    // whether the setting was applied. Default false: upstream behaviour.
+    bool setVideoEncoderHandover(bool enabled);
+
     std::unique_ptr<webrtc::VideoEncoderFactory> CreateVideoEncoderFactory(JNIEnv* env);
 
     std::unique_ptr<webrtc::VideoDecoderFactory> CreateVideoDecoderFactory(JNIEnv* env);
