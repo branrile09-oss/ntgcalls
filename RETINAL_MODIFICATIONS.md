@@ -6,9 +6,9 @@ It is not an official ntgcalls release.
 | | |
 |---|---|
 | Upstream base | ntgcalls v2.2.5, commit `1f4e4baadc77ce74753c037741c21ca95b1ca737` |
-| Modified version | `2.2.5+retinal.6` (Android `BuildConfig.VERSION_NAME`; `version.retinal` in `version.properties`) |
+| Modified version | `2.2.5+retinal.7` (Android `BuildConfig.VERSION_NAME`; `version.retinal` in `version.properties`) |
 | Modified by | Riley Branson, for the Retinal Android application |
-| Date of modification | 2026-09-30 (`+retinal.1`: codec preference; `+retinal.2`: outgoing video statistics; `+retinal.3`: opt-in encoder factory without shared EGL context); 2026-10-01 (`+retinal.4`: outgoing video maximum bitrate; `+retinal.5`: hardware-only AV1); 2026-10-03 (`+retinal.6`: encoder handover on frame-size changes) |
+| Date of modification | 2026-09-30 (`+retinal.1`: codec preference; `+retinal.2`: outgoing video statistics; `+retinal.3`: opt-in encoder factory without shared EGL context); 2026-10-01 (`+retinal.4`: outgoing video maximum bitrate; `+retinal.5`: hardware-only AV1); 2026-10-03 (`+retinal.6`: encoder handover on frame-size changes; `+retinal.7`: adaptive-playback video decoder) |
 | Licence | GNU LGPL-3.0, the same as upstream (see `LICENSE`). The modifications are licensed under LGPL-3.0. |
 
 ## What was changed
@@ -208,9 +208,52 @@ Files:
 
 Changed hunks are marked `Retinal encoder handover`.
 
-### 8. Version identification
+### 8. Adaptive-playback video decoder (2026-10-03, `+retinal.7`)
 
-- `version.properties`: `version.retinal=6` (`1`–`5` for `2.2.5+retinal.1` to `.5`)
+When the size of the incoming video frames changes, WebRTC's Android hardware
+decoder (`AndroidVideoDecoder`) releases its MediaCodec and creates a new one,
+and treats a size change reported by the codec after the first frame as an
+error; the call shows no new video until the new decoder has started (about
+250–450 ms on a Galaxy S21). `NTgCalls.setVideoDecoderAdaptivePlayback(enabled)`
+lets the application use MediaCodec adaptive playback instead:
+
+- Hardware decoders come from `org.webrtc.RetinalAdaptiveVideoDecoderFactory`,
+  a subclass of WebRTC's `HardwareVideoDecoderFactory` with the same codec
+  selection. A codec that declares `FEATURE_AdaptivePlayback` gets
+  `org.webrtc.RetinalAdaptiveVideoDecoder`; any other codec gets WebRTC's
+  stock decoder.
+- `RetinalAdaptiveVideoDecoder` is a modified copy of WebRTC's
+  `AndroidVideoDecoder` (BSD-3-Clause, WebRTC commit
+  `978360941fb89b8459a72a2da0a91b1d05d0ca1a`, m149; its copyright header is
+  kept). It configures the codec with `KEY_MAX_WIDTH`/`KEY_MAX_HEIGHT` (up to
+  1920 in each direction, within the codec's limits); frames up to that size do
+  not restart it, and the new size is taken from the codec's output format
+  change. If the codec rejects the maximum size, or a frame is larger, it
+  behaves as upstream (restart).
+- `org.webrtc.RetinalDefaultVideoDecoderFactory` is WebRTC's
+  `DefaultVideoDecoderFactory(EglBase.Context)` combination (hardware with
+  software and platform-software fallbacks) with the adaptive hardware side.
+  With hardware-only AV1 (§6), AV1 uses the adaptive hardware factory.
+- Process-wide, applied only before the decoder factory is first created;
+  returns whether it was applied. Without a call to it, behaviour is
+  upstream's. Encoders, negotiation, codec selection and order, bandwidth
+  estimation and the degradation preference are unchanged. WebRTC's own
+  library and `webrtc.jar` are used unmodified.
+
+Files:
+
+- `android/app/src/main/java/io/github/pytgcalls/NTgCalls.java`: `setVideoDecoderAdaptivePlayback(boolean enabled)`
+- `android/app/src/main/jni/ntgcalls.cpp`: JNI entry point
+- `ntgcalls/include/ntgcalls/ntgcalls.hpp`, `ntgcalls/src/ntgcalls.cpp`: `NTgCalls::setVideoDecoderAdaptivePlayback`
+- `wrtc/include/wrtc/video_factory/hardware/android/video_factory.hpp`, `wrtc/src/video_factory/hardware/android/video_factory.cpp`: the setting, applied when the decoder factory is created
+- `android/app/src/main/java/org/webrtc/RetinalAdaptiveVideoDecoder.java` (new; modified copy of WebRTC's `AndroidVideoDecoder.java`, BSD-3-Clause)
+- `android/app/src/main/java/org/webrtc/RetinalAdaptiveVideoDecoderFactory.java`, `android/app/src/main/java/org/webrtc/RetinalDefaultVideoDecoderFactory.java` (new)
+
+Changed hunks are marked `Retinal adaptive decoder`.
+
+### 9. Version identification
+
+- `version.properties`: `version.retinal=7` (`1`–`6` for `2.2.5+retinal.1` to `.6`)
 - `android/app/build.gradle`: the Android version name and publication version
   carry the `+retinal.<n>` suffix. (`VERSION_CODE` is unchanged because upstream's
   version-code scheme only understands `-alpha`/`-beta`/`-rc` suffixes.)
