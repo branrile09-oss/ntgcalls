@@ -114,6 +114,10 @@ namespace ntgcalls {
         // call (bps <= 0 clears it); applied now or when the video channel is created.
         ASYNC_RETURN(void) setOutgoingVideoMaxBitrate(int64_t chatId, int bps);
 
+        // Retinal max framerate seam: maximum frame rate of the outgoing video of a P2P
+        // call (fps <= 0 clears it); call before connectP2P so the first encoder uses it.
+        ASYNC_RETURN(void) setOutgoingVideoMaxFramerate(int64_t chatId, int fps);
+
         ASYNC_RETURN(double) cpuUsage() const;
 
         static std::string ping();

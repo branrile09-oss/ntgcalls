@@ -118,6 +118,13 @@ namespace ntgcalls {
         outgoingVideoCodecPreferences = std::move(preferences);
     }
 
+    void P2PCall::setOutgoingVideoMaxFramerate(const int fps) {
+        outgoingVideoMaxFramerate = fps;
+        if (const auto nativeConnection = std::dynamic_pointer_cast<wrtc::NativeConnection>(connection)) {
+            nativeConnection->setOutgoingVideoMaxFramerate(fps);
+        }
+    }
+
     void P2PCall::setOutgoingVideoMaxBitrate(const int bps) const {
         if (const auto nativeConnection = std::dynamic_pointer_cast<wrtc::NativeConnection>(connection)) {
             nativeConnection->setOutgoingVideoMaxBitrate(bps);
@@ -157,6 +164,9 @@ namespace ntgcalls {
                 type() == Type::Outgoing
             );
             nativeConnection->setOutgoingVideoCodecPreferences(outgoingVideoCodecPreferences); // Retinal codec seam
+            if (outgoingVideoMaxFramerate > 0) { // Retinal max framerate seam
+                nativeConnection->setOutgoingVideoMaxFramerate(outgoingVideoMaxFramerate);
+            }
             connection = nativeConnection;
         } else {
             throw InvalidParams("Unsupported protocol version");

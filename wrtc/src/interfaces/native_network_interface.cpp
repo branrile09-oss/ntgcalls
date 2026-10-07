@@ -352,6 +352,18 @@ namespace wrtc {
         });
     }
 
+    // Retinal max framerate seam
+    void NativeNetworkInterface::setOutgoingVideoMaxFramerate(const int fps) {
+        outgoingVideoMaxFramerate = fps;
+        std::weak_ptr weak(shared_from_this());
+        workerThread().BlockingCall([weak, fps] {
+            const auto strong = weak.lock();
+            if (strong && strong->videoChannel) {
+                strong->videoChannel->setMaxFramerate(fps);
+            }
+        });
+    }
+
     // Retinal stats seam: copies existing statistics only; changes nothing.
     std::optional<OutgoingVideoStats> NativeNetworkInterface::getOutgoingVideoStats() {
         std::weak_ptr weak(shared_from_this());

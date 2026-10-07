@@ -64,6 +64,7 @@ namespace wrtc {
         std::unique_ptr<OutgoingAudioChannel> audioChannel;
         std::unique_ptr<OutgoingVideoChannel> videoChannel;
         std::atomic<int> outgoingVideoMaxBitrate{0}; // Retinal max bitrate seam
+        std::atomic<int> outgoingVideoMaxFramerate{0}; // Retinal max framerate seam
         PeerIceParameters localParameters, remoteParameters;
         std::unique_ptr<webrtc::DtlsTransportInternal> dtlsTransport;
         std::unique_ptr<webrtc::DtlsSrtpTransport> dtlsSrtpTransport;
@@ -140,6 +141,11 @@ namespace wrtc {
         // applied now on the worker thread if the channel exists, and remembered
         // for a channel created later.
         void setOutgoingVideoMaxBitrate(int bps);
+
+        // Retinal max framerate seam: outgoing video max frame rate (fps <= 0 clears);
+        // used when the video channel is created, and applied now on the worker thread
+        // if it exists (reaching the next encoder WebRTC creates).
+        void setOutgoingVideoMaxFramerate(int fps);
 
         void enableAudioIncoming(bool enable) override;
 

@@ -25,6 +25,7 @@ namespace ntgcalls {
         std::vector<wrtc::IceCandidate> pendingIceCandidates;
         signaling::Signaling::Version protocolVersion = signaling::Signaling::Version::Unknown;
         std::vector<std::string> outgoingVideoCodecPreferences; // Retinal codec seam
+        int outgoingVideoMaxFramerate = 0; // Retinal max framerate seam
 
         void processSignalingData(const bytes::binary& buffer);
 
@@ -59,6 +60,10 @@ namespace ntgcalls {
 
         // Retinal max bitrate seam
         void setOutgoingVideoMaxBitrate(int bps) const;
+
+        // Retinal max framerate seam: kept for the connection created by connect()
+        // (call before it), and applied to an existing one.
+        void setOutgoingVideoMaxFramerate(int fps);
 
         Type type() const override;
 

@@ -32,7 +32,10 @@ namespace wrtc {
             LocalVideoAdapter* sink,
             // Retinal codec seam: ordered outgoing codec names (e.g. "AV1", "VP9", "H264").
             // Empty keeps the default preference (H.264 first).
-            std::vector<std::string> codecPreferences = {}
+            std::vector<std::string> codecPreferences = {},
+            // Retinal max framerate seam: encodings[0].max_framerate, set before the
+            // channel is enabled (so before the first encoder exists). 0 = WebRTC default.
+            int maxFramerate = 0
         );
 
         ~OutgoingVideoChannel();
@@ -47,5 +50,14 @@ namespace wrtc {
         // Retinal max bitrate seam: sets encodings[0].max_bitrate_bps (a ceiling for
         // WebRTC's own allocation); bps <= 0 clears it (WebRTC defaults). Worker thread.
         void setMaxBitrate(int bps) const;
+
+        // Retinal max framerate seam: sets encodings[0].max_framerate; fps <= 0 clears it
+        // (WebRTC default). WebRTC does not re-initialise a running encoder for it: the
+        // next encoder it creates uses it. Worker thread.
+        void setMaxFramerate(int fps) const;
+
+    private:
+        // Retinal max framerate seam; on the worker thread.
+        void applyMaxFramerate(int fps) const;
     };
 } // wrtc

@@ -251,7 +251,8 @@ namespace wrtc {
                             workerThread(),
                             networkThread(),
                             &videoSink,
-                            outgoingVideoCodecPreferences
+                            outgoingVideoCodecPreferences,
+                            outgoingVideoMaxFramerate // Retinal max framerate seam
                         );
                         if (const int maxBitrate = outgoingVideoMaxBitrate; maxBitrate > 0) { // Retinal max bitrate seam
                             videoChannel->setMaxBitrate(maxBitrate);

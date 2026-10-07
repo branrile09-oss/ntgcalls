@@ -161,5 +161,11 @@ public class NTgCalls {
     // defaults). Applies to the live call, or when its video channel is created.
     public native void setOutgoingVideoMaxBitrate(long chatId, int bps) throws ConnectionNotFoundException;
 
+    // Retinal max framerate seam: maximum frame rate (fps) of the outgoing video of a P2P
+    // call (encodings[0].max_framerate); 0 clears it (WebRTC default). Call before
+    // connectP2P so the first encoder is configured with it; later, it reaches the next
+    // encoder WebRTC creates (a running encoder keeps its configuration).
+    public native void setOutgoingVideoMaxFramerate(long chatId, int fps) throws ConnectionNotFoundException;
+
     public native Map<Long, CallInfo> calls();
 }

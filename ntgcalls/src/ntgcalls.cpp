@@ -334,6 +334,12 @@ namespace ntgcalls {
         END_ASYNC
     }
 
+    ASYNC_RETURN(void) NTgCalls::setOutgoingVideoMaxFramerate(const int64_t chatId, const int fps) {
+        SMART_ASYNC(this, chatId, fps)
+        SafeCall<P2PCall>(safeConnection(chatId))->setOutgoingVideoMaxFramerate(fps);
+        END_ASYNC
+    }
+
     ASYNC_RETURN(std::optional<wrtc::OutgoingVideoStats>) NTgCalls::getOutgoingVideoStats(const int64_t chatId) {
         SMART_ASYNC(this, chatId)
         return SafeCall<P2PCall>(safeConnection(chatId))->getOutgoingVideoStats();

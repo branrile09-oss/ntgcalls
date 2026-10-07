@@ -17,7 +17,8 @@ namespace wrtc {
         SafeThread& workerThread,
         SafeThread& networkThread,
         LocalVideoAdapter* sink,
-        std::vector<std::string> codecPreferences
+        std::vector<std::string> codecPreferences,
+        const int maxFramerate
     ): _ssrc(mediaContent.ssrc), workerThread(workerThread), networkThread(networkThread), sink(sink) {
         webrtc::VideoOptions videoOptions;
         videoOptions.is_screencast = mediaContent.isScreenCast();
@@ -109,6 +110,11 @@ namespace wrtc {
             channel->SetLocalContent(outgoingVideoDescription.get(), webrtc::SdpType::kOffer);
             channel->SetRemoteContent(incomingVideoDescription.get(), webrtc::SdpType::kAnswer);
         });
+        if (maxFramerate > 0) { // Retinal max framerate seam: before any frame reaches an encoder
+            workerThread.BlockingCall([&] {
+                applyMaxFramerate(maxFramerate);
+            });
+        }
         channel->Enable(true);
         set_enabled(true);
         workerThread.BlockingCall([&] {
@@ -157,6 +163,28 @@ namespace wrtc {
             RTC_LOG(LS_INFO) << "[Retinal max bitrate seam] encodings[0].max_bitrate_bps="
                              << bps << " result=" << (result.ok() ? "ok" : result.message());
         });
+    }
+
+    void OutgoingVideoChannel::setMaxFramerate(const int fps) const {
+        workerThread.BlockingCall([&] {
+            applyMaxFramerate(fps);
+        });
+    }
+
+    void OutgoingVideoChannel::applyMaxFramerate(const int fps) const {
+        webrtc::RtpParameters rtpParameters = channel->video_media_send_channel()->GetRtpSendParameters(_ssrc);
+        if (rtpParameters.encodings.empty()) {
+            RTC_LOG(LS_WARNING) << "[Retinal max framerate seam] no encodings";
+            return;
+        }
+        if (fps > 0) {
+            rtpParameters.encodings[0].max_framerate = static_cast<double>(fps);
+        } else {
+            rtpParameters.encodings[0].max_framerate = std::nullopt;
+        }
+        const auto result = channel->video_media_send_channel()->SetRtpSendParameters(_ssrc, rtpParameters);
+        RTC_LOG(LS_INFO) << "[Retinal max framerate seam] encodings[0].max_framerate="
+                         << fps << " result=" << (result.ok() ? "ok" : result.message());
     }
 
     bool OutgoingVideoChannel::getStats(webrtc::VideoMediaSendInfo* info) const {
