@@ -6,9 +6,9 @@ It is not an official ntgcalls release.
 | | |
 |---|---|
 | Upstream base | ntgcalls v2.2.5, commit `1f4e4baadc77ce74753c037741c21ca95b1ca737` |
-| Modified version | `2.2.5+retinal.7` (Android `BuildConfig.VERSION_NAME`; `version.retinal` in `version.properties`) |
+| Modified version | `2.2.5+retinal.8` (Android `BuildConfig.VERSION_NAME`; `version.retinal` in `version.properties`) |
 | Modified by | Riley Branson, for the Retinal Android application |
-| Date of modification | 2026-09-30 (`+retinal.1`: codec preference; `+retinal.2`: outgoing video statistics; `+retinal.3`: opt-in encoder factory without shared EGL context); 2026-10-01 (`+retinal.4`: outgoing video maximum bitrate; `+retinal.5`: hardware-only AV1); 2026-10-03 (`+retinal.6`: encoder handover on frame-size changes; `+retinal.7`: adaptive-playback video decoder) |
+| Date of modification | 2026-09-30 (`+retinal.1`: codec preference; `+retinal.2`: outgoing video statistics; `+retinal.3`: opt-in encoder factory without shared EGL context); 2026-10-01 (`+retinal.4`: outgoing video maximum bitrate; `+retinal.5`: hardware-only AV1); 2026-10-03 (`+retinal.6`: encoder handover on frame-size changes; `+retinal.7`: adaptive-playback video decoder); 2026-10-08 (`+retinal.8`: outgoing video maximum frame rate) |
 | Licence | GNU LGPL-3.0, the same as upstream (see `LICENSE`). The modifications are licensed under LGPL-3.0. |
 
 ## What was changed
@@ -251,9 +251,48 @@ Files:
 
 Changed hunks are marked `Retinal adaptive decoder`.
 
-### 9. Version identification
+### 9. Outgoing video maximum frame rate (2026-10-08, `+retinal.8`)
 
-- `version.properties`: `version.retinal=7` (`1`–`6` for `2.2.5+retinal.1` to `.6`)
+Upstream sets no maximum frame rate for the outgoing video of a P2P call, so
+WebRTC configures the video encoder for its default of 60 fps
+(`kDefaultVideoMaxFramerate`). Android's `HardwareVideoEncoder` passes that to
+MediaCodec as `KEY_FRAME_RATE`, whatever rate the application actually sends.
+On a Galaxy S21 (Exynos VP9 encoder) fed 30 fps, an encoder configured for 60
+spends only about half of its bitrate target for its first ~4 seconds, after
+every start. `NTgCalls.setOutgoingVideoMaxFramerate(chatId, fps)` lets the
+application state its outgoing frame rate:
+
+- It sets `encodings[0].max_framerate` of the outgoing video sender through
+  `SetRtpSendParameters` (on WebRTC's worker thread). `fps <= 0` clears it, so
+  WebRTC's default applies again.
+- Call it before `connectP2P`: the P2P call keeps the value, hands it to the
+  connection, and the outgoing video channel applies it before it is enabled,
+  so the first encoder WebRTC creates, and every later one (including encoder
+  handovers, §7), is configured for it. During a call it updates the
+  parameter; WebRTC does not re-initialise a running encoder for a frame-rate
+  change, so it reaches the next encoder.
+- Generic: no codec, vendor or device logic, and ntgcalls chooses no value;
+  the application supplies it.
+- `max_bitrate_bps` (§4) and every other RTP parameter are preserved, and
+  `setOutgoingVideoMaxBitrate` preserves it.
+- Without a call to it, behaviour is upstream's. Group calls use the same
+  channel class, but the setting is only exposed for P2P calls.
+
+Files:
+
+- `android/app/src/main/java/io/github/pytgcalls/NTgCalls.java`: `setOutgoingVideoMaxFramerate(long chatId, int fps)`
+- `android/app/src/main/jni/ntgcalls.cpp`: JNI entry point
+- `ntgcalls/include/ntgcalls/ntgcalls.hpp`, `ntgcalls/src/ntgcalls.cpp`: `NTgCalls::setOutgoingVideoMaxFramerate`
+- `ntgcalls/include/ntgcalls/instances/p2p_call.hpp`, `ntgcalls/src/instances/p2p_call.cpp`: keep the value and hand it to the connection
+- `wrtc/include/wrtc/interfaces/native_network_interface.hpp`, `wrtc/src/interfaces/native_network_interface.cpp`: remember the value and apply it on the worker thread
+- `wrtc/src/interfaces/native_connection.cpp`: pass it to the outgoing video channel when it is created
+- `wrtc/include/wrtc/interfaces/media/channels/outgoing_video_channel.hpp`, `wrtc/src/interfaces/media/channels/outgoing_video_channel.cpp`: set `encodings[0].max_framerate`, before enabling the channel and on request
+
+Changed hunks are marked `Retinal max framerate seam`.
+
+### 10. Version identification
+
+- `version.properties`: `version.retinal=8` (`1`–`7` for `2.2.5+retinal.1` to `.7`)
 - `android/app/build.gradle`: the Android version name and publication version
   carry the `+retinal.<n>` suffix. (`VERSION_CODE` is unchanged because upstream's
   version-code scheme only understands `-alpha`/`-beta`/`-rc` suffixes.)
