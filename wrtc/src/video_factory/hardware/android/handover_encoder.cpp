@@ -137,12 +137,6 @@ namespace android {
             Slot* slot;
         };
 
-        // Slots are destroyed off the encoder and output threads.
-        void retire(std::shared_ptr<Slot> slot) {
-            if (!slot) return;
-            std::thread([s = std::move(slot)]() mutable { s.reset(); }).detach();
-        }
-
         // The frame fitted to w x h, keeping its aspect: a wider frame is
         // cropped at the centre, a narrower one gets black side bars (as the
         // viewer will show the narrower picture anyway).
@@ -187,6 +181,10 @@ namespace android {
                 }
                 p.reset();
                 a.reset();
+                // A retired encoder may still deliver a frame to this object (its
+                // SlotCallback) until its release completes: wait for all of them.
+                std::unique_lock r(retireMutex);
+                retireCv.wait(r, [this] { return retiring == 0; });
             }
 
             int InitEncode(const webrtc::VideoCodec* c, const Settings& s) override {
@@ -340,16 +338,22 @@ namespace android {
                 if (p) p->worker->invoke([&] { p->encoder->SetRates(parameters); });
             }
 
+            // A task posted to a slot's worker must not own the slot: holding the
+            // last reference, it would destroy the slot on that worker, where
+            // ~Slot waits for the worker itself and never releases the encoder.
+            // The raw pointer stays valid: tasks are only posted while the caller
+            // holds a reference, and ~Slot runs every task queued before it
+            // releases the encoder and stops the worker.
             void OnPacketLossRateUpdate(const float rate) override {
-                if (const auto a = current()) a->worker->post([a, rate] { a->encoder->OnPacketLossRateUpdate(rate); });
+                if (const auto a = current()) a->worker->post([s = a.get(), rate] { if (s->encoder) s->encoder->OnPacketLossRateUpdate(rate); });
             }
 
             void OnRttUpdate(const int64_t rtt) override {
-                if (const auto a = current()) a->worker->post([a, rtt] { a->encoder->OnRttUpdate(rtt); });
+                if (const auto a = current()) a->worker->post([s = a.get(), rtt] { if (s->encoder) s->encoder->OnRttUpdate(rtt); });
             }
 
             void OnLossNotification(const LossNotification& n) override {
-                if (const auto a = current()) a->worker->post([a, n] { a->encoder->OnLossNotification(n); });
+                if (const auto a = current()) a->worker->post([s = a.get(), n] { if (s->encoder) s->encoder->OnLossNotification(n); });
             }
 
             EncoderInfo GetEncoderInfo() const override {
@@ -470,6 +474,24 @@ namespace android {
             std::deque<Held> held;
             std::optional<uint32_t> lastSentTs;
             std::mutex sendMutex; // keeps frames in decision order on their way to WebRTC
+            std::mutex retireMutex;
+            std::condition_variable retireCv;
+            int retiring = 0; // slots still being destroyed by retire(), guarded by retireMutex
+
+            // Slots are destroyed off the encoder and output threads. The destructor
+            // waits for them, because a retiring encoder can still call back here.
+            void retire(std::shared_ptr<Slot> slot) {
+                if (!slot) return;
+                {
+                    std::lock_guard r(retireMutex);
+                    retiring++;
+                }
+                std::thread([this, s = std::move(slot)]() mutable {
+                    s.reset();
+                    std::lock_guard r(retireMutex);
+                    if (--retiring == 0) retireCv.notify_all();
+                }).detach();
+            }
 
             // Called with m held; releases it. Sends in order, after any earlier decision.
             webrtc::EncodedImageCallback::Result forward(std::unique_lock<std::mutex>& l, std::vector<Held>& frames) {
