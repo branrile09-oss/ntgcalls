@@ -6,9 +6,9 @@ It is not an official ntgcalls release.
 | | |
 |---|---|
 | Upstream base | ntgcalls v2.2.5, commit `1f4e4baadc77ce74753c037741c21ca95b1ca737` |
-| Modified version | `2.2.5+retinal.8` (Android `BuildConfig.VERSION_NAME`; `version.retinal` in `version.properties`) |
+| Modified version | `2.2.5+retinal.9` (Android `BuildConfig.VERSION_NAME`; `version.retinal` in `version.properties`) |
 | Modified by | Riley Branson, for the Retinal Android application |
-| Date of modification | 2026-09-30 (`+retinal.1`: codec preference; `+retinal.2`: outgoing video statistics; `+retinal.3`: opt-in encoder factory without shared EGL context); 2026-10-01 (`+retinal.4`: outgoing video maximum bitrate; `+retinal.5`: hardware-only AV1); 2026-10-03 (`+retinal.6`: encoder handover on frame-size changes; `+retinal.7`: adaptive-playback video decoder); 2026-10-08 (`+retinal.8`: outgoing video maximum frame rate) |
+| Date of modification | 2026-09-30 (`+retinal.1`: codec preference; `+retinal.2`: outgoing video statistics; `+retinal.3`: opt-in encoder factory without shared EGL context); 2026-10-01 (`+retinal.4`: outgoing video maximum bitrate; `+retinal.5`: hardware-only AV1); 2026-10-03 (`+retinal.6`: encoder handover on frame-size changes; `+retinal.7`: adaptive-playback video decoder); 2026-10-08 (`+retinal.8`: outgoing video maximum frame rate); 2026-10-11 (`+retinal.9`: encoder handover releases its encoders reliably) |
 | Licence | GNU LGPL-3.0, the same as upstream (see `LICENSE`). The modifications are licensed under LGPL-3.0. |
 
 ## What was changed
@@ -208,6 +208,15 @@ Files:
 
 Changed hunks are marked `Retinal encoder handover`.
 
+Fix (2026-10-11, `+retinal.9`), in `handover_encoder.cpp`: tasks posted to an
+inner encoder's thread (packet loss, RTT and loss notifications) held a
+reference to that encoder's slot. When one of them held the last reference as
+the call ended, the slot was destroyed on its own thread, which then waited
+for itself forever, and the hardware encoder was never released. These tasks
+now hold a plain pointer. Also, the wrapper's destructor now waits until
+encoders retired after a handover have finished releasing, because they can
+still deliver frames to it. Handover behaviour is unchanged.
+
 ### 8. Adaptive-playback video decoder (2026-10-03, `+retinal.7`)
 
 When the size of the incoming video frames changes, WebRTC's Android hardware
@@ -292,7 +301,7 @@ Changed hunks are marked `Retinal max framerate seam`.
 
 ### 10. Version identification
 
-- `version.properties`: `version.retinal=8` (`1`–`7` for `2.2.5+retinal.1` to `.7`)
+- `version.properties`: `version.retinal=9` (`1`–`8` for `2.2.5+retinal.1` to `.8`)
 - `android/app/build.gradle`: the Android version name and publication version
   carry the `+retinal.<n>` suffix. (`VERSION_CODE` is unchanged because upstream's
   version-code scheme only understands `-alpha`/`-beta`/`-rc` suffixes.)
