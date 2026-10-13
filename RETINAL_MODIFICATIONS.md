@@ -6,9 +6,9 @@ It is not an official ntgcalls release.
 | | |
 |---|---|
 | Upstream base | ntgcalls v2.2.5, commit `1f4e4baadc77ce74753c037741c21ca95b1ca737` |
-| Modified version | `2.2.5+retinal.9` (Android `BuildConfig.VERSION_NAME`; `version.retinal` in `version.properties`) |
+| Modified version | `2.2.5+retinal.10` (Android `BuildConfig.VERSION_NAME`; `version.retinal` in `version.properties`) |
 | Modified by | Riley Branson, for the Retinal Android application |
-| Date of modification | 2026-09-30 (`+retinal.1`: codec preference; `+retinal.2`: outgoing video statistics; `+retinal.3`: opt-in encoder factory without shared EGL context); 2026-10-01 (`+retinal.4`: outgoing video maximum bitrate; `+retinal.5`: hardware-only AV1); 2026-10-03 (`+retinal.6`: encoder handover on frame-size changes; `+retinal.7`: adaptive-playback video decoder); 2026-10-08 (`+retinal.8`: outgoing video maximum frame rate); 2026-10-11 (`+retinal.9`: encoder handover releases its encoders reliably) |
+| Date of modification | 2026-09-30 (`+retinal.1`: codec preference; `+retinal.2`: outgoing video statistics; `+retinal.3`: opt-in encoder factory without shared EGL context); 2026-10-01 (`+retinal.4`: outgoing video maximum bitrate; `+retinal.5`: hardware-only AV1); 2026-10-03 (`+retinal.6`: encoder handover on frame-size changes; `+retinal.7`: adaptive-playback video decoder); 2026-10-08 (`+retinal.8`: outgoing video maximum frame rate); 2026-10-11 (`+retinal.9`: encoder handover releases its encoders reliably); 2026-10-13 (`+retinal.10`: outgoing video bitrate ceiling, frame rate and statistics for group calls) |
 | Licence | GNU LGPL-3.0, the same as upstream (see `LICENSE`). The modifications are licensed under LGPL-3.0. |
 
 ## What was changed
@@ -59,7 +59,8 @@ It is observational only: the snapshot is taken on WebRTC's worker thread and
 nothing is written back. Congestion control, the degradation preference,
 encoder behaviour, negotiation and Telegram signalling are unchanged, and no
 policy is added to ntgcalls. The calling application decides what, if
-anything, to do with the values.
+anything, to do with the values. Since `+retinal.10` it also answers for
+group calls (§11).
 
 Files:
 
@@ -120,6 +121,8 @@ it, so WebRTC's defaults apply again.
 - Without a call to it, behaviour is upstream's.
 - Codec negotiation, the degradation preference and the encoder factory are
   unchanged.
+- Since `+retinal.10` it also applies to group calls, as a ceiling for the
+  whole outgoing video (§11).
 
 Files:
 
@@ -284,8 +287,8 @@ application state its outgoing frame rate:
   the application supplies it.
 - `max_bitrate_bps` (§4) and every other RTP parameter are preserved, and
   `setOutgoingVideoMaxBitrate` preserves it.
-- Without a call to it, behaviour is upstream's. Group calls use the same
-  channel class, but the setting is only exposed for P2P calls.
+- Without a call to it, behaviour is upstream's. Since `+retinal.10` it is
+  also exposed for group calls (§11).
 
 Files:
 
@@ -301,10 +304,59 @@ Changed hunks are marked `Retinal max framerate seam`.
 
 ### 10. Version identification
 
-- `version.properties`: `version.retinal=9` (`1`–`8` for `2.2.5+retinal.1` to `.8`)
+- `version.properties`: `version.retinal=10` (`1`–`9` for `2.2.5+retinal.1` to `.9`)
 - `android/app/build.gradle`: the Android version name and publication version
   carry the `+retinal.<n>` suffix. (`VERSION_CODE` is unchanged because upstream's
   version-code scheme only understands `-alpha`/`-beta`/`-rc` suffixes.)
+
+### 11. Group calls: outgoing video bitrate ceiling, frame rate and statistics (2026-10-13, `+retinal.10`)
+
+Upstream exposes `setOutgoingVideoMaxBitrate` (§4), `setOutgoingVideoMaxFramerate`
+(§9) and `getOutgoingVideoStats` (§2) only for P2P calls. They now also accept a
+group call, and reach its main connection through the same
+`NativeNetworkInterface` code (the presentation connection is not affected).
+The Java and JNI signatures are unchanged.
+
+A group call's outgoing video channel declares three simulcast layers (SIM and
+FID SSRC groups). On Android the hardware encoder produces only the first: its
+output carries no simulcast index, so WebRTC sends it as layer 0. Yet it is
+given the sum of every active layer's bitrate allocation, so a maximum on
+`encodings[0]` alone would not cap it. Therefore, when the channel has more
+than one encoding:
+
+- A ceiling (`bps > 0`) sets `encodings[0].max_bitrate_bps` and sets the other
+  encodings' `active` to false, so WebRTC allocates bitrate to the first layer
+  only, up to the ceiling. The previous `active` values are remembered (only
+  when `SetRtpSendParameters` succeeds) and restored when the ceiling is
+  cleared (`bps <= 0`), which also clears `encodings[0].max_bitrate_bps`.
+- The SSRC, SIM and FID declarations and the join payload are unchanged.
+  WebRTC keeps the RTP modules of one sender active or inactive together, so
+  nothing changes on the wire. Deactivating a layer or changing a maximum does
+  not re-initialise the encoder; re-activating a layer (clearing the ceiling)
+  re-initialises it once, as upstream would.
+- The frame-rate limit is set on every encoding, because the encoder runs at
+  the highest `max_framerate` of any encoding, active or not.
+- Values set before the video channel exists are kept; the group connection
+  applies them when it creates the channel (in `connect`), the frame rate
+  before the channel is enabled.
+- Statistics: with one sender per layer, the snapshot uses WebRTC's aggregated
+  sender (bytes, packets, frames, retransmissions and RTCP counts summed over
+  the layers) and the sum of the layers' target bitrates.
+
+A channel with one encoding (every P2P call) takes exactly the previous code
+paths. Codec negotiation is unchanged (group calls keep upstream's H.264-first
+order). Without calls to these functions, group-call behaviour is upstream's.
+
+Files:
+
+- `ntgcalls/src/ntgcalls.cpp`: accept a group call in the three entry points
+- `ntgcalls/include/ntgcalls/instances/group_call.hpp`, `ntgcalls/src/instances/group_call.cpp`: forward to the main connection
+- `wrtc/src/interfaces/group_connection.cpp`: apply remembered values when the outgoing video channel is created
+- `wrtc/include/wrtc/interfaces/media/channels/outgoing_video_channel.hpp`, `wrtc/src/interfaces/media/channels/outgoing_video_channel.cpp`: the ceiling and frame rate for more than one encoding
+- `wrtc/src/interfaces/native_network_interface.cpp`: statistics for more than one sender
+
+Changed hunks are marked `Retinal group seams`, `Retinal group bitrate seam`,
+`Retinal group framerate seam` and `Retinal group stats`.
 
 ## Building
 
