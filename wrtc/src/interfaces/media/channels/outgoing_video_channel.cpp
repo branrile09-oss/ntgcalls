@@ -154,6 +154,10 @@ namespace wrtc {
                 RTC_LOG(LS_WARNING) << "[Retinal max bitrate seam] no encodings";
                 return;
             }
+            if (rtpParameters.encodings.size() > 1) { // Retinal group bitrate seam
+                setGroupMaxBitrate(rtpParameters, bps);
+                return;
+            }
             if (bps > 0) {
                 rtpParameters.encodings[0].max_bitrate_bps = bps;
             } else {
@@ -163,6 +167,51 @@ namespace wrtc {
             RTC_LOG(LS_INFO) << "[Retinal max bitrate seam] encodings[0].max_bitrate_bps="
                              << bps << " result=" << (result.ok() ? "ok" : result.message());
         });
+    }
+
+    // Retinal group bitrate seam. A group call's channel declares three simulcast layers,
+    // but the Android hardware encoder produces only the first (its output carries no
+    // simulcast index, so WebRTC sends it as layer 0) while being given the sum of every
+    // active layer's allocation. A ceiling for the whole outgoing video therefore caps
+    // encodings[0] and deactivates the other encodings for bitrate allocation. Their
+    // SSRCs stay declared, and WebRTC keeps the RTP modules of one sender active or
+    // inactive together, so nothing changes on the wire; deactivating a layer does not
+    // re-initialise the encoder. Clearing the ceiling restores the previous `active`
+    // values (re-activating a layer re-initialises the encoder once, as upstream would).
+    void OutgoingVideoChannel::setGroupMaxBitrate(webrtc::RtpParameters& rtpParameters, const int bps) const {
+        auto& encodings = rtpParameters.encodings;
+        std::optional<std::vector<bool>> saved = savedEncodingsActive;
+        if (bps > 0) {
+            if (!saved) {
+                saved.emplace();
+                for (const auto& encoding : encodings) {
+                    saved->push_back(encoding.active);
+                }
+            }
+            for (size_t i = 1; i < encodings.size(); i++) {
+                encodings[i].active = false;
+            }
+            encodings[0].max_bitrate_bps = bps;
+        } else {
+            if (saved) {
+                for (size_t i = 0; i < encodings.size() && i < saved->size(); i++) {
+                    encodings[i].active = (*saved)[i];
+                }
+                saved.reset();
+            }
+            encodings[0].max_bitrate_bps = std::nullopt;
+        }
+        const auto result = channel->video_media_send_channel()->SetRtpSendParameters(_ssrc, rtpParameters);
+        if (result.ok()) {
+            savedEncodingsActive = std::move(saved);
+        }
+        std::string active;
+        for (const auto& encoding : encodings) {
+            active += encoding.active ? "1" : "0";
+        }
+        RTC_LOG(LS_INFO) << "[Retinal group bitrate seam] encodings=" << encodings.size()
+                         << " encodings[0].max_bitrate_bps=" << bps << " active=" << active
+                         << " result=" << (result.ok() ? "ok" : result.message());
     }
 
     void OutgoingVideoChannel::setMaxFramerate(const int fps) const {
@@ -175,6 +224,17 @@ namespace wrtc {
         webrtc::RtpParameters rtpParameters = channel->video_media_send_channel()->GetRtpSendParameters(_ssrc);
         if (rtpParameters.encodings.empty()) {
             RTC_LOG(LS_WARNING) << "[Retinal max framerate seam] no encodings";
+            return;
+        }
+        if (rtpParameters.encodings.size() > 1) {
+            // Retinal group framerate seam: the encoder runs at the highest max_framerate
+            // of any encoding, active or not, so every encoding gets the limit.
+            for (auto& encoding : rtpParameters.encodings) {
+                encoding.max_framerate = fps > 0 ? std::optional<double>(fps) : std::nullopt;
+            }
+            const auto result = channel->video_media_send_channel()->SetRtpSendParameters(_ssrc, rtpParameters);
+            RTC_LOG(LS_INFO) << "[Retinal group framerate seam] encodings=" << rtpParameters.encodings.size()
+                             << " max_framerate=" << fps << " result=" << (result.ok() ? "ok" : result.message());
             return;
         }
         if (fps > 0) {

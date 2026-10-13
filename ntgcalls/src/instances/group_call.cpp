@@ -210,6 +210,27 @@ namespace ntgcalls {
         }
     }
 
+    // Retinal group seams: the same NativeNetworkInterface code as the P2P seams.
+    std::optional<wrtc::OutgoingVideoStats> GroupCall::getOutgoingVideoStats() const {
+        const auto nativeConnection = std::dynamic_pointer_cast<wrtc::NativeNetworkInterface>(connection);
+        if (!nativeConnection) {
+            return std::nullopt;
+        }
+        return nativeConnection->getOutgoingVideoStats();
+    }
+
+    void GroupCall::setOutgoingVideoMaxBitrate(const int bps) const {
+        if (const auto nativeConnection = std::dynamic_pointer_cast<wrtc::NativeNetworkInterface>(connection)) {
+            nativeConnection->setOutgoingVideoMaxBitrate(bps);
+        }
+    }
+
+    void GroupCall::setOutgoingVideoMaxFramerate(const int fps) const {
+        if (const auto nativeConnection = std::dynamic_pointer_cast<wrtc::NativeNetworkInterface>(connection)) {
+            nativeConnection->setOutgoingVideoMaxFramerate(fps);
+        }
+    }
+
     void GroupCall::onUpgrade(const std::function<void(MediaState)>& callback) const {
         streamManager->onUpgrade(callback);
     }

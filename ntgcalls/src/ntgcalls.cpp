@@ -328,21 +328,36 @@ namespace ntgcalls {
         END_ASYNC
     }
 
+    // Retinal group seams: group calls take these too; a P2P call keeps its own path.
     ASYNC_RETURN(void) NTgCalls::setOutgoingVideoMaxBitrate(const int64_t chatId, const int bps) {
         SMART_ASYNC(this, chatId, bps)
-        SafeCall<P2PCall>(safeConnection(chatId))->setOutgoingVideoMaxBitrate(bps);
+        const auto call = safeConnection(chatId);
+        if (const auto groupCall = dynamic_cast<GroupCall*>(call)) {
+            groupCall->setOutgoingVideoMaxBitrate(bps);
+        } else {
+            SafeCall<P2PCall>(call)->setOutgoingVideoMaxBitrate(bps);
+        }
         END_ASYNC
     }
 
     ASYNC_RETURN(void) NTgCalls::setOutgoingVideoMaxFramerate(const int64_t chatId, const int fps) {
         SMART_ASYNC(this, chatId, fps)
-        SafeCall<P2PCall>(safeConnection(chatId))->setOutgoingVideoMaxFramerate(fps);
+        const auto call = safeConnection(chatId);
+        if (const auto groupCall = dynamic_cast<GroupCall*>(call)) {
+            groupCall->setOutgoingVideoMaxFramerate(fps);
+        } else {
+            SafeCall<P2PCall>(call)->setOutgoingVideoMaxFramerate(fps);
+        }
         END_ASYNC
     }
 
     ASYNC_RETURN(std::optional<wrtc::OutgoingVideoStats>) NTgCalls::getOutgoingVideoStats(const int64_t chatId) {
         SMART_ASYNC(this, chatId)
-        return SafeCall<P2PCall>(safeConnection(chatId))->getOutgoingVideoStats();
+        const auto call = safeConnection(chatId);
+        if (const auto groupCall = dynamic_cast<GroupCall*>(call)) {
+            return groupCall->getOutgoingVideoStats();
+        }
+        return SafeCall<P2PCall>(call)->getOutgoingVideoStats();
         END_ASYNC
     }
 

@@ -3,8 +3,10 @@
 //
 
 #pragma once
+#include <optional>
 #include <string>
 #include <vector>
+#include <api/rtp_parameters.h>
 #include <call/call.h>
 #include <pc/dtls_srtp_transport.h>
 
@@ -20,6 +22,10 @@ namespace wrtc {
         SafeThread& networkThread;
         std::unique_ptr<webrtc::VideoBitrateAllocatorFactory> bitrateAllocatorFactory;
         LocalVideoAdapter* sink;
+        // Retinal group bitrate seam: the encodings' `active` values from before a
+        // ceiling deactivated the unused ones; restored when the ceiling is cleared.
+        // Worker thread only.
+        mutable std::optional<std::vector<bool>> savedEncodingsActive;
 
     public:
         OutgoingVideoChannel(
@@ -49,15 +55,21 @@ namespace wrtc {
 
         // Retinal max bitrate seam: sets encodings[0].max_bitrate_bps (a ceiling for
         // WebRTC's own allocation); bps <= 0 clears it (WebRTC defaults). Worker thread.
+        // Retinal group bitrate seam: with more than one encoding (a group call's
+        // simulcast layers), a ceiling for the whole outgoing video; see setGroupMaxBitrate.
         void setMaxBitrate(int bps) const;
 
         // Retinal max framerate seam: sets encodings[0].max_framerate; fps <= 0 clears it
         // (WebRTC default). WebRTC does not re-initialise a running encoder for it: the
         // next encoder it creates uses it. Worker thread.
+        // Retinal group framerate seam: with more than one encoding, every encoding.
         void setMaxFramerate(int fps) const;
 
     private:
         // Retinal max framerate seam; on the worker thread.
         void applyMaxFramerate(int fps) const;
+
+        // Retinal group bitrate seam; on the worker thread.
+        void setGroupMaxBitrate(webrtc::RtpParameters& rtpParameters, int bps) const;
     };
 } // wrtc

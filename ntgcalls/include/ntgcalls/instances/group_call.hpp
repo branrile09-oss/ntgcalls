@@ -3,7 +3,9 @@
 //
 #pragma once
 #include <ntgcalls/instances/call_interface.hpp>
+#include <optional>
 #include <wrtc/models/media_content.hpp>
+#include <wrtc/models/outgoing_video_stats.hpp>
 #include <wrtc/utils/json.hpp>
 #include <wrtc/interfaces/group_connection.hpp>
 
@@ -35,6 +37,18 @@ namespace ntgcalls {
         void stopPresentation(bool force = false);
 
         void setStreamSources(StreamManager::Mode mode, const MediaDescription& config) const override;
+
+        // Retinal group seams: the main (camera) connection only, never the presentation.
+        // Stats are read-only; nullopt before the connection exists.
+        std::optional<wrtc::OutgoingVideoStats> getOutgoingVideoStats() const;
+
+        // Retinal group bitrate seam: a ceiling for the whole outgoing video; kept for a
+        // video channel created later (connect() creates it).
+        void setOutgoingVideoMaxBitrate(int bps) const;
+
+        // Retinal group framerate seam: kept for a video channel created later, and
+        // applied to an existing one.
+        void setOutgoingVideoMaxFramerate(int fps) const;
 
         Type type() const override;
 

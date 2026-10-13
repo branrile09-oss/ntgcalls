@@ -382,7 +382,12 @@ namespace wrtc {
             if (!strong->videoChannel || !strong->videoChannel->getStats(&info) || info.senders.empty()) {
                 return stats;
             }
-            const auto& sender = info.senders.front();
+            // Retinal group stats: a simulcast channel (a group call) has one sender per
+            // layer. WebRTC's aggregated sender sums their counters but keeps the first
+            // layer's target, so the target is the sum of the layers' targets. A single
+            // sender (P2P) is read exactly as before.
+            const bool layered = info.senders.size() > 1 && !info.aggregated_senders.empty();
+            const auto& sender = layered ? info.aggregated_senders.front() : info.senders.front();
             stats.hasSender = true;
             stats.codecName = sender.codec_name;
             if (sender.codec_payload_type) {
@@ -395,7 +400,19 @@ namespace wrtc {
             if (sender.power_efficient_encoder) {
                 stats.powerEfficientEncoder = *sender.power_efficient_encoder ? 1 : 0;
             }
-            if (sender.target_bitrate) {
+            if (layered) {
+                bool anyTarget = false;
+                int64_t targetSum = 0;
+                for (const auto& layer : info.senders) {
+                    if (layer.target_bitrate) {
+                        anyTarget = true;
+                        targetSum += layer.target_bitrate->bps();
+                    }
+                }
+                if (anyTarget) {
+                    stats.targetBitrateBps = targetSum;
+                }
+            } else if (sender.target_bitrate) {
                 stats.targetBitrateBps = sender.target_bitrate->bps();
             }
             stats.mediaBitrateBps = sender.nominal_bitrate;

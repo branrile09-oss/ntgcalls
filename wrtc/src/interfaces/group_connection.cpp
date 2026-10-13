@@ -397,8 +397,13 @@ namespace wrtc {
                 videoContent,
                 workerThread(),
                 networkThread(),
-                &videoSink
+                &videoSink,
+                std::vector<std::string>{}, // codec negotiation unchanged (H.264 first)
+                outgoingVideoMaxFramerate // Retinal group framerate seam
             );
+            if (const int maxBitrate = outgoingVideoMaxBitrate; maxBitrate > 0) { // Retinal group bitrate seam
+                videoChannel->setMaxBitrate(maxBitrate);
+            }
         }
     }
 
