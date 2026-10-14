@@ -6,9 +6,9 @@ It is not an official ntgcalls release.
 | | |
 |---|---|
 | Upstream base | ntgcalls v2.2.5, commit `1f4e4baadc77ce74753c037741c21ca95b1ca737` |
-| Modified version | `2.2.5+retinal.10` (Android `BuildConfig.VERSION_NAME`; `version.retinal` in `version.properties`) |
+| Modified version | `2.2.5+retinal.11` (Android `BuildConfig.VERSION_NAME`; `version.retinal` in `version.properties`) |
 | Modified by | Riley Branson, for the Retinal Android application |
-| Date of modification | 2026-09-30 (`+retinal.1`: codec preference; `+retinal.2`: outgoing video statistics; `+retinal.3`: opt-in encoder factory without shared EGL context); 2026-10-01 (`+retinal.4`: outgoing video maximum bitrate; `+retinal.5`: hardware-only AV1); 2026-10-03 (`+retinal.6`: encoder handover on frame-size changes; `+retinal.7`: adaptive-playback video decoder); 2026-10-08 (`+retinal.8`: outgoing video maximum frame rate); 2026-10-11 (`+retinal.9`: encoder handover releases its encoders reliably); 2026-10-13 (`+retinal.10`: outgoing video bitrate ceiling, frame rate and statistics for group calls) |
+| Date of modification | 2026-09-30 (`+retinal.1`: codec preference; `+retinal.2`: outgoing video statistics; `+retinal.3`: opt-in encoder factory without shared EGL context); 2026-10-01 (`+retinal.4`: outgoing video maximum bitrate; `+retinal.5`: hardware-only AV1); 2026-10-03 (`+retinal.6`: encoder handover on frame-size changes; `+retinal.7`: adaptive-playback video decoder); 2026-10-08 (`+retinal.8`: outgoing video maximum frame rate); 2026-10-11 (`+retinal.9`: encoder handover releases its encoders reliably); 2026-10-13 (`+retinal.10`: outgoing video bitrate ceiling, frame rate and statistics for group calls); 2026-10-14 (`+retinal.11`: Android JNI reads incoming group-video SSRC lists correctly) |
 | Licence | GNU LGPL-3.0, the same as upstream (see `LICENSE`). The modifications are licensed under LGPL-3.0. |
 
 ## What was changed
@@ -304,7 +304,7 @@ Changed hunks are marked `Retinal max framerate seam`.
 
 ### 10. Version identification
 
-- `version.properties`: `version.retinal=10` (`1`–`9` for `2.2.5+retinal.1` to `.9`)
+- `version.properties`: `version.retinal=11` (`1`–`10` for `2.2.5+retinal.1` to `.10`)
 - `android/app/build.gradle`: the Android version name and publication version
   carry the `+retinal.<n>` suffix. (`VERSION_CODE` is unchanged because upstream's
   version-code scheme only understands `-alpha`/`-beta`/`-rc` suffixes.)
@@ -357,6 +357,42 @@ Files:
 
 Changed hunks are marked `Retinal group seams`, `Retinal group bitrate seam`,
 `Retinal group framerate seam` and `Retinal group stats`.
+
+### 12. Android JNI: incoming group-video SSRC lists (2026-10-14, `+retinal.11`)
+
+A bug fix in the Android JNI layer; there is no new API.
+`NTgCalls.addIncomingVideo(chatId, endpoint, List<SsrcGroup>)` passes each
+`SsrcGroup`'s SSRCs as a `java.util.List` of boxed `Integer`s. Upstream's
+`parseSsrcGroup` (`utils.cpp`) called `List.get(int)`, whose JNI signature returns
+`Object`, through `CallIntMethod`. Under CheckJNI (always on for debuggable
+Android apps) this aborts the process on the first incoming group video
+subscription. Without CheckJNI the object reference itself is read as the SSRC.
+
+`parseSsrcGroup` now:
+
+- calls `List.get` with `CallObjectMethod` and unboxes each element with
+  `Number.intValue()`, keeping all 32 bits (SSRCs are unsigned);
+- releases each element's local reference as it goes;
+- checks for a pending Java exception after `List.size()`, `List.get()` and
+  `intValue()`, clears it and reports `InvalidParams`
+  (`InvalidParamsException` in Java);
+- rejects a null `SsrcGroup`, a null `ssrcGroups` list and null or non-number
+  elements the same way, instead of passing them to JNI.
+
+`parseSsrcGroupList`, which calls it for each group, now reads the list's size
+once and checks for a pending Java exception after `List.size()` and each
+`List.get()`, the same way (upstream called `size()` on every iteration and
+checked nothing).
+
+The semantics string (null still gives an empty string) and everything else
+are unchanged. Valid input gives the same groups and SSRC values upstream intended.
+
+Files:
+
+- `android/app/src/main/jni/utils.cpp`: `parseSsrcGroup`, `parseSsrcGroupList` and
+  their helper `throwIfSsrcGroupJavaException`
+
+Changed hunks are marked `Retinal SSRC list fix`.
 
 ## Building
 
