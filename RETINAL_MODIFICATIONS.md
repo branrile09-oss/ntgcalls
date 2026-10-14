@@ -6,9 +6,9 @@ It is not an official ntgcalls release.
 | | |
 |---|---|
 | Upstream base | ntgcalls v2.2.5, commit `1f4e4baadc77ce74753c037741c21ca95b1ca737` |
-| Modified version | `2.2.5+retinal.11` (Android `BuildConfig.VERSION_NAME`; `version.retinal` in `version.properties`) |
+| Modified version | `2.2.5+retinal.12` (Android `BuildConfig.VERSION_NAME`; `version.retinal` in `version.properties`) |
 | Modified by | Riley Branson, for the Retinal Android application |
-| Date of modification | 2026-09-30 (`+retinal.1`: codec preference; `+retinal.2`: outgoing video statistics; `+retinal.3`: opt-in encoder factory without shared EGL context); 2026-10-01 (`+retinal.4`: outgoing video maximum bitrate; `+retinal.5`: hardware-only AV1); 2026-10-03 (`+retinal.6`: encoder handover on frame-size changes; `+retinal.7`: adaptive-playback video decoder); 2026-10-08 (`+retinal.8`: outgoing video maximum frame rate); 2026-10-11 (`+retinal.9`: encoder handover releases its encoders reliably); 2026-10-13 (`+retinal.10`: outgoing video bitrate ceiling, frame rate and statistics for group calls); 2026-10-14 (`+retinal.11`: Android JNI reads incoming group-video SSRC lists correctly) |
+| Date of modification | 2026-09-30 (`+retinal.1`: codec preference; `+retinal.2`: outgoing video statistics; `+retinal.3`: opt-in encoder factory without shared EGL context); 2026-10-01 (`+retinal.4`: outgoing video maximum bitrate; `+retinal.5`: hardware-only AV1); 2026-10-03 (`+retinal.6`: encoder handover on frame-size changes; `+retinal.7`: adaptive-playback video decoder); 2026-10-08 (`+retinal.8`: outgoing video maximum frame rate); 2026-10-11 (`+retinal.9`: encoder handover releases its encoders reliably); 2026-10-13 (`+retinal.10`: outgoing video bitrate ceiling, frame rate and statistics for group calls); 2026-10-14 (`+retinal.11`: Android JNI reads incoming group-video SSRC lists correctly); 2026-10-15 (`+retinal.12`: incoming group video uses the server's payload types) |
 | Licence | GNU LGPL-3.0, the same as upstream (see `LICENSE`). The modifications are licensed under LGPL-3.0. |
 
 ## What was changed
@@ -304,7 +304,7 @@ Changed hunks are marked `Retinal max framerate seam`.
 
 ### 10. Version identification
 
-- `version.properties`: `version.retinal=11` (`1`–`10` for `2.2.5+retinal.1` to `.10`)
+- `version.properties`: `version.retinal=12` (`1`–`11` for `2.2.5+retinal.1` to `.11`)
 - `android/app/build.gradle`: the Android version name and publication version
   carry the `+retinal.<n>` suffix. (`VERSION_CODE` is unchanged because upstream's
   version-code scheme only understands `-alpha`/`-beta`/`-rc` suffixes.)
@@ -393,6 +393,45 @@ Files:
   their helper `throwIfSsrcGroupJavaException`
 
 Changed hunks are marked `Retinal SSRC list fix`.
+
+### 13. Incoming group video: the server's payload types (2026-10-15, `+retinal.12`)
+
+A bug fix in the group-call receive path; there is no new API.
+A group call's server declares the video payload types of the connection
+(`video.payload-types` in the join response: ids, codec names, parameters
+including each RTX `apt`, and RTCP feedback). The outgoing video channel is
+built from that table, but upstream built each incoming video channel from a
+locally numbered table instead (`OutgoingVideoFormat::assignPayloadTypes`,
+starting at payload type 100), because `GroupConnection::addIncomingVideo` passed
+no payload types. One connection therefore mapped a payload type to one codec
+for sending and to another for receiving: video the server forwarded on
+payload type 104 (H.264 in its table) reached WebRTC's VP9 depacketizer
+(`Failed to parse payload`) and was never decoded.
+
+Now:
+
+- `GroupConnection::addIncomingVideo` gives the incoming channel the server's
+  table. `OutgoingVideoFormat::getVideoCodecs` builds the receive codecs from the
+  table it is given, with every codec's parameters (RTX `apt` included) and RTCP
+  feedback, in the server's order. No codec name or payload number is built in.
+- A subscription that arrives before `connect` has delivered the table is held
+  (`IncomingVideoPayloadGate`, new, header-only) and created by `createChannels`
+  with the table. A table that is missing or unusable (no codec other than rtx, an
+  empty name, or an id above 127) refuses held and later subscriptions
+  (`addIncomingVideo` throws `RTCException`; `createChannels` logs each dropped
+  endpoint). Locally numbered payload types are never used for a group
+  connection: with no table `getVideoCodecs` returns no codecs.
+- One-to-one (P2P) calls take exactly the previous code path (the peer's
+  negotiated table). Outgoing group video, bitrate, ICE, simulcast, congestion
+  control and the JNI layer are unchanged.
+
+Files:
+
+- `wrtc/include/wrtc/models/incoming_video_payload_gate.hpp`: new, header-only
+- `wrtc/include/wrtc/interfaces/group_connection.hpp`, `wrtc/src/interfaces/group_connection.cpp`: use the gate in `addIncomingVideo`, `removeIncomingVideo` and `createChannels`
+- `wrtc/src/models/outgoing_video_format.cpp`: `getVideoCodecs` uses the supplied table only
+
+Changed hunks are marked `Retinal incoming group-video payload mapping`.
 
 ## Building
 
