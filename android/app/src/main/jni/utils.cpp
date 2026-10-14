@@ -590,22 +590,54 @@ webrtc::ScopedJavaLocalRef<jobject> parseJRemoteSource(JNIEnv *env, const ntgcal
     return webrtc::ScopedJavaLocalRef<>::Adopt(env, env->NewObject(remoteSourceClass.obj(), constructor, source.ssrc, state.obj(), device.obj()));
 }
 
+// Retinal SSRC list fix (+retinal.11): a Java exception thrown by a JNI call must be
+// cleared before any further JNI call; it becomes InvalidParams (InvalidParamsException).
+static void throwIfSsrcGroupJavaException(JNIEnv *env, const char *what) {
+    if (env->ExceptionCheck()) {
+        env->ExceptionDescribe();
+        env->ExceptionClear();
+        throw ntgcalls::InvalidParams(std::string("SsrcGroup: ") + what + " threw a Java exception");
+    }
+}
+
 wrtc::SsrcGroup parseSsrcGroup(JNIEnv *env, jobject ssrcGroup) {
+    // Retinal SSRC list fix (+retinal.11): reject null input instead of passing it to JNI.
+    if (ssrcGroup == nullptr) {
+        throw ntgcalls::InvalidParams("SsrcGroup is null");
+    }
     const auto ssrcGroupClass = webrtc::GetClass(env, "io/github/pytgcalls/media/SsrcGroup");
     jfieldID semanticsField = env->GetFieldID(ssrcGroupClass.obj(), "semantics", "Ljava/lang/String;");
     jfieldID ssrcGroupsField = env->GetFieldID(ssrcGroupClass.obj(), "ssrcGroups", "Ljava/util/List;");
 
     const auto semantics = webrtc::ScopedJavaLocalRef<jstring>::Adopt(env, reinterpret_cast<jstring>(env->GetObjectField(ssrcGroup, semanticsField)));
     const auto ssrcGroups = webrtc::ScopedJavaLocalRef<>::Adopt(env, env->GetObjectField(ssrcGroup, ssrcGroupsField));
+    if (ssrcGroups.obj() == nullptr) {
+        throw ntgcalls::InvalidParams("SsrcGroup.ssrcGroups is null");
+    }
     const auto listClass = webrtc::GetClass(env, "java/util/List");
+    const auto numberClass = webrtc::GetClass(env, "java/lang/Number");
 
     jmethodID sizeMethod = env->GetMethodID(listClass.obj(), "size", "()I");
     jmethodID getMethod = env->GetMethodID(listClass.obj(), "get", "(I)Ljava/lang/Object;");
+    jmethodID intValueMethod = env->GetMethodID(numberClass.obj(), "intValue", "()I");
     std::vector<uint32_t> result;
-    int size = env->CallIntMethod(ssrcGroups.obj(), sizeMethod);
-    result.reserve(size);
-    for (int i = 0; i < size; i++) {
-        result.push_back(static_cast<uint32_t>(env->CallIntMethod(ssrcGroups.obj(), getMethod, i)));
+    const jint size = env->CallIntMethod(ssrcGroups.obj(), sizeMethod);
+    throwIfSsrcGroupJavaException(env, "List.size()");
+    result.reserve(size > 0 ? static_cast<size_t>(size) : 0);
+    for (jint i = 0; i < size; i++) {
+        // Retinal SSRC list fix (+retinal.11): List.get returns an Object (a boxed Integer),
+        // so it is called with CallObjectMethod and unboxed with Number.intValue(). Upstream
+        // called it with CallIntMethod: CheckJNI aborts the process, and without CheckJNI the
+        // object reference itself would be read as the SSRC.
+        const auto element = webrtc::ScopedJavaLocalRef<>::Adopt(env, env->CallObjectMethod(ssrcGroups.obj(), getMethod, i));
+        throwIfSsrcGroupJavaException(env, "List.get()");
+        if (element.obj() == nullptr || !env->IsInstanceOf(element.obj(), numberClass.obj())) {
+            throw ntgcalls::InvalidParams("SsrcGroup.ssrcGroups[" + std::to_string(i) + "] is not a number");
+        }
+        const jint ssrc = env->CallIntMethod(element.obj(), intValueMethod);
+        throwIfSsrcGroupJavaException(env, "Number.intValue()");
+        // An SSRC is an unsigned 32-bit value carried in a Java int: the bits are kept.
+        result.push_back(static_cast<uint32_t>(ssrc));
     }
     return {parseString(env, semantics.obj()), result};
 }
@@ -618,8 +650,15 @@ std::vector<wrtc::SsrcGroup> parseSsrcGroupList(JNIEnv *env, jobject list) {
     jmethodID sizeMethod = env->GetMethodID(listClass.obj(), "size", "()I");
     jmethodID getMethod = env->GetMethodID(listClass.obj(), "get", "(I)Ljava/lang/Object;");
     std::vector<wrtc::SsrcGroup> result;
-    for (int i = 0; i < env->CallIntMethod(list, sizeMethod); i++) {
+    // Retinal SSRC list fix (+retinal.11): read the size once and check every JNI call for a
+    // pending Java exception before the next one (upstream called size() on every iteration
+    // and checked nothing).
+    const jint size = env->CallIntMethod(list, sizeMethod);
+    throwIfSsrcGroupJavaException(env, "List<SsrcGroup>.size()");
+    result.reserve(size > 0 ? static_cast<size_t>(size) : 0);
+    for (jint i = 0; i < size; i++) {
         const auto element = webrtc::ScopedJavaLocalRef<>::Adopt(env, env->CallObjectMethod(list, getMethod, i));
+        throwIfSsrcGroupJavaException(env, "List<SsrcGroup>.get()");
         result.push_back(parseSsrcGroup(env, element.obj()));
     }
     return result;
