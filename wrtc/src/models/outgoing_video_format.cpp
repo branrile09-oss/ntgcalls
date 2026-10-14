@@ -11,29 +11,35 @@ namespace wrtc {
     videoCodec(std::move(videoCodec_)), rtxCodec(std::move(rtxCodec_)){}
 
     std::vector<webrtc::Codec> OutgoingVideoFormat::getVideoCodecs(
-        const std::vector<webrtc::SdpVideoFormat>& formats,
+        [[maybe_unused]] const std::vector<webrtc::SdpVideoFormat>& formats,
         const std::vector<PayloadType>& payloadTypes,
         const bool isGroupConnection
     ) {
         std::vector<webrtc::Codec> codecs;
-        if (isGroupConnection) {
-            for (auto assignedPayloads = assignPayloadTypes(formats); const auto &payloadType : assignedPayloads) {
-                codecs.push_back(payloadType.videoCodec);
-                if (payloadType.rtxCodec) {
-                    codecs.push_back(payloadType.rtxCodec.value());
-                }
+        // Retinal incoming group-video payload mapping (+retinal.12): the payload
+        // table the caller supplies (the group call server's, or a peer's
+        // negotiated one) is the only source, used with its codec parameters, RTX
+        // associations and RTCP feedback. Upstream numbered a group connection's
+        // formats locally (assignPayloadTypes), so one connection mapped a payload
+        // type to different codecs for sending and receiving. With no table nothing
+        // is invented: no codecs (a group connection's caller never gets here
+        // without one, see IncomingVideoPayloadGate).
+        if (payloadTypes.empty()) {
+            if (isGroupConnection) {
+                RTC_LOG(LS_ERROR) << "[Retinal group video] no negotiated video payload types;"
+                                  << " not using locally numbered formats";
             }
-        } else {
-            for (const auto &payloadType : payloadTypes) {
-                webrtc::Codec codec = webrtc::CreateVideoCodec(payloadType.id, payloadType.name);
-                for (const auto & [fst, snd] : payloadType.parameters) {
-                    codec.SetParam(fst, snd);
-                }
-                for (const auto & [type, subtype] : payloadType.feedbackTypes) {
-                    codec.AddFeedbackParam(webrtc::FeedbackParam(type, subtype));
-                }
-                codecs.push_back(std::move(codec));
+            return codecs;
+        }
+        for (const auto &payloadType : payloadTypes) {
+            webrtc::Codec codec = webrtc::CreateVideoCodec(payloadType.id, payloadType.name);
+            for (const auto & [fst, snd] : payloadType.parameters) {
+                codec.SetParam(fst, snd);
             }
+            for (const auto & [type, subtype] : payloadType.feedbackTypes) {
+                codec.AddFeedbackParam(webrtc::FeedbackParam(type, subtype));
+            }
+            codecs.push_back(std::move(codec));
         }
         return codecs;
     }

@@ -359,6 +359,10 @@ namespace wrtc {
 
     void GroupConnection::createChannels(const ResponsePayload::Media& media) {
         mediaConfig = media;
+        // Retinal incoming group-video payload mapping (+retinal.12): from here a
+        // video subscription gets the server's table (or is refused when it has
+        // none); subscriptions that arrived earlier were held for it.
+        auto incomingVideoDelivery = incomingVideoGate.deliver(media.videoPayloadTypes);
         if (audioChannel && audioChannel->ssrc() != outgoingAudioSsrc) {
             audioChannel = nullptr;
         }
@@ -405,10 +409,26 @@ namespace wrtc {
                 videoChannel->setMaxBitrate(maxBitrate);
             }
         }
+
+        // Retinal incoming group-video payload mapping (+retinal.12)
+        if (!incomingVideoDelivery.usable) {
+            RTC_LOG(LS_ERROR) << "[Retinal group video] the server's video payload types are missing or unusable;"
+                              << " incoming video is refused (no local payload numbering is used)";
+        }
+        for (const auto& endpoint : incomingVideoDelivery.rejected) {
+            RTC_LOG(LS_ERROR) << "[Retinal group video] incoming video " << endpoint
+                              << " dropped: no usable negotiated video payload types";
+        }
+        for (const auto& [endpoint, content] : incomingVideoDelivery.ready) {
+            RTC_LOG(LS_INFO) << "[Retinal group video] incoming video " << endpoint << " subscribed before the"
+                             << " negotiated payload types arrived; creating it now with "
+                             << content.payloadTypes.size() << " server payload types";
+            addIncomingSmartSource(endpoint, content);
+        }
     }
 
     uint32_t GroupConnection::addIncomingVideo(const std::string& endpoint, const std::vector<SsrcGroup>& ssrcGroups) {
-        if (pendingContent.contains(endpoint)) {
+        if (pendingContent.contains(endpoint) || incomingVideoGate.contains(endpoint)) {
             return 0;
         }
         MediaContent mediaContent;
@@ -421,7 +441,26 @@ namespace wrtc {
                 mediaContent.isScreenCast()
             );
         } else {
-            addIncomingSmartSource(endpoint, mediaContent);
+            // Retinal incoming group-video payload mapping (+retinal.12): receive on
+            // the payload types the server negotiated for this connection (the table
+            // the outgoing video channel is built from), never on locally numbered
+            // ones. Before connect() has delivered it the subscription is held
+            // (createChannels creates it); a missing or unusable table refuses it.
+            auto subscription = incomingVideoGate.subscribe(endpoint, mediaContent);
+            switch (subscription.outcome) {
+            case IncomingVideoPayloadGate::Outcome::Deferred:
+                RTC_LOG(LS_INFO) << "[Retinal group video] incoming video " << endpoint
+                                 << " held until the server's payload types arrive";
+                break;
+            case IncomingVideoPayloadGate::Outcome::Ready:
+                mediaContent.payloadTypes = std::move(subscription.payloadTypes);
+                addIncomingSmartSource(endpoint, mediaContent);
+                break;
+            case IncomingVideoPayloadGate::Outcome::Rejected:
+                RTC_LOG(LS_ERROR) << "[Retinal group video] incoming video " << endpoint
+                                  << " refused: no usable negotiated video payload types";
+                throw RTCException("No usable negotiated video payload types for incoming video " + endpoint);
+            }
         }
         return mediaContent.mainSsrc();
     }
@@ -429,6 +468,9 @@ namespace wrtc {
     bool GroupConnection::removeIncomingVideo(const std::string& endpoint) {
         if (mtprotoStream) {
             return mtprotoStream->removeIncomingVideo(endpoint);
+        }
+        if (incomingVideoGate.remove(endpoint)) { // Retinal +retinal.12: still held
+            return true;
         }
         if (!pendingContent.contains(endpoint)) {
             return false;

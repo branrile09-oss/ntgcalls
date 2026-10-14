@@ -7,6 +7,7 @@
 #include <wrtc/interfaces/network_interface.hpp>
 #include <wrtc/interfaces/native_network_interface.hpp>
 #include <wrtc/models/response_payload.hpp>
+#include <wrtc/models/incoming_video_payload_gate.hpp>
 #include <wrtc/interfaces/mtproto/mtproto_stream.hpp>
 
 namespace wrtc {
@@ -56,6 +57,8 @@ namespace wrtc {
         bool lastEffectivelyConnected = false;
         ConnectionMode connectionMode = ConnectionMode::None;
         ResponsePayload::Media mediaConfig;
+        // Retinal incoming group-video payload mapping (+retinal.12)
+        IncomingVideoPayloadGate incomingVideoGate;
         std::shared_ptr<MTProtoStream> mtprotoStream;
 
         bool supportsRenomination() const override;
